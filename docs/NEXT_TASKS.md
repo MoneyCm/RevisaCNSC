@@ -1,3 +1,15 @@
+## Auditoría Codex y alcance autorizado — 2026-09-21
+
+Esta actualización prevalece sobre las notas históricas inferiores. Se revisaron a4b8553 y ee96b33: corrección de slug NOT NULL, esquemas y pruebas de migración, más documentación. Auditoría: 56/56 unitarias, 3/3 migraciones aisladas en 8912c62d, build correcto y lint 0 errores/19 advertencias. Los esquemas v1/v2 son reconstruidos; una base histórica real sigue NOT VERIFIED.
+
+Estado leído del teléfono: radar.db v3 íntegra, 27 procesos, 0 seguidos y 0 entradas activity. No se atribuye la pérdida previa a una causa demostrada. Están instaladas producción y QA separadas. No reinstalar producción, borrar datos, seleccionar concursos ni probar notificaciones en este bloque.
+
+Prioridad autorizada: (1) checkpoint y push de coordinación; (2) robustez del historial con regresiones; (3) pruebas completas y migraciones aisladas; (4) documentación, commit y push. No iniciar diagnóstico/preferencias ni funcionalidades nuevas. La validación real de alertas y Doze queda para otra tarea.
+
+Historial PARCIAL: fallos en páginas posteriores pueden sustituir datos completos por parciales; se absorbe cancelación; URLs posteriores apuntan a página inicial; el detalle descarga dos veces la primera página y carece de pausa en este recorrido. Corregir exclusivamente estos problemas. Criterios: conservar caché ante fallo, propagar cancelación, URL por página, una descarga inicial y pausa prudente, con regresiones y suite completa aprobadas.
+
+Git al iniciar esta fase: main dos commits delante del remoto; TASKS y HANDOFF sin seguimiento. Este checkpoint incorpora la coordinación; verificar sincronización con git fetch, git status y git rev-list, sin asumirla por una nota histórica.
+
 # Próximas tareas
 
 Actualización 2026-09-21: migraciones Room instrumentadas corregidas y verificadas en 8912c62d: se activó exportSchema (schemas commiteados), MigrationTestHelper 2.6.1 con esquemas JSON 1/2/3 en assets de test, tres rutas (1→2, 2→3, 1→3) con datos conservados y el bug real detectado (MIGRATION_2_3 agregaba slug nullable; ahora TEXT NOT NULL DEFAULT '', coincidiendo con la entidad). "migration-test" es una DB aislada; radar.db quedó en v3 con 27 procesos reobtenidos (la app principal estaba desinstalada al iniciar el bloque; el historial de seguidos/actividad quedó resetado por la reinstalación). Siguiente bloque: diagnóstico/preferencias (ver 7). Pendientes NOT VERIFIED del bloque anterior: paginación real >3 páginas, diagnóstico de fallo real por micrositio en teléfono y entrega física de novedades.
