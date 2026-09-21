@@ -21,6 +21,16 @@ Git al iniciar esta fase: main dos commits delante del remoto; TASKS y HANDOFF s
 - Conclusión: la doc previa (TASKS 8) que describía following/actividad "vacíos" quedó obsoleta; se actualizó TASKS.md 8. Estado listo para NEXT_TASKS 7 sin acción física previa de repoblamiento.
 - NOT VERIFIED: que los seguidos actuales sean exactamente los deseados (PGN/ESE2 fuera), y verificación física de alertas (fuera de alcance de este bloque).
 
+## Bloque 2026-09-21 — Verificación física de 72471af (Diagnóstico y preferencias) por el usuario
+- El usuario realizó manualmente en Mérito Radar producción las pruebas de UI del Diagnóstico y confirmó que el comportamiento fue coherente (fuente: testimonio del usuario; sin mediciones por ADB en esta sesión, sin instalación nueva por terminal). Se registra como verificado físicamente según corresponda:
+  - **Pantalla Ajustes → Diagnóstico con datos reales del teléfono**: estado general, últimas revisiones, programación, seguidos, fuentes, frecuencia, notificaciones y batería coherentes con Room/WorkManager.
+  - **Persistencia del intervalo y cambios 15→30→60→15**: la frecuencia se cambió desde la UI y el diagnóstico la reflejó; la preferencia queda persistida (sobrevive en `monitor_schedule`).
+  - **Pausa y reanudación**: pausar detiene la programación y reanudar la restablece coherentemente en la UI.
+  - **Actualización del diagnóstico al regresar de configuración Android**: al volver de los ajustes del sistema (permiso/canales/batería) el diagnóstico se refresca (trigger de ciclo de vida `ON_RESUME` y entrada a Ajustes).
+  - **Conservación de la base y datos existentes y worker funcionando**: radar.db y los datos guardados se conservaron; el worker siguió funcionando y al finalizar quedó **un único trabajo periódico activo**.
+- No se modificó código, no se ejecutó `connectedDebugAndroidTest` ni se borró/reinstaló la base del teléfono.
+- Siguen pendientes NOT VERIFIED (fuera de esta verificación): entrega de una novedad CNSC real con pantalla bloqueada/app cerrada (TASKS 2), comportamiento prolongado bajo Doze/restricciones OEM (TASKS 5), paginación real de más de 3 páginas del historial, migración de una base histórica real con datos previos, y recordatorio/cancelación por aplazamiento real en producción.
+
 ## Bloque 2026-09-21 — Correcciones de la auditoría QA de Devin sobre ac8e6b4 (orquestador temporal)
 - Previo autorización explícita y verificación de HEAD == origin/main == ac8e6b4 con árbol limpio. Solo se corrigen hallazgos confirmados de la auditoría sobre el commit ac8e6b4; sin funcionalidades nuevas.
 - Hallazgo 1 (WorkInfo vigente): `observePeriodicWork()` dejó de usar `firstOrNull()` sobre todos los trabajos del nombre único. Mapea cada `WorkInfo` a `PeriodicWorkCandidate` y `Diagnostics.selectActivePeriodic` selecciona determinísticamente el activo (ENQUEUED o RUNNING), ignorando históricos CANCELLED/SUCCEEDED/FAILED; un histórico terminado ya no produce un falso AT_RISK si hay otro trabajo activo. Sin trabajo activo → null (ausencia de programación) que `status()` interpreta como AT_RISK (con PAUSED prevaleciendo si la vigilancia está en pausa).

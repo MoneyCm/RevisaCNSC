@@ -12,7 +12,7 @@ Git al iniciar esta fase: main dos commits delante del remoto; TASKS y HANDOFF s
 
 # HANDOFF — Relevo de OpenCode (orquestador temporal) a Codex
 
-- **Fecha**: 2026-09-21 (última actualización al cierre del bloque de correcciones de la auditoría QA de Devin).
+- **Fecha**: 2026-09-21 (última actualización al cierre de la verificación física de 72471af por el usuario).
 - **Estado actual del proyecto**: Android local-first de vigilancia CNSC (Mérito Radar) funcional y verificado hasta el cierre de esta sesión. Consulta CNSC directamente (OkHttp + TLS corregido), persiste en Room (v3), detecta avisos locales, proyecta fechas conservadoramente y genera notificaciones locales. Backend FastAPI/PostgreSQL es tooling de referencia, no requisito de ejecución. Ahora incluye diagnóstico en la app y preferencias de frecuencia/pausa cumplibles por la arquitectura, con los hallazgos de la auditoría QA de Devin corregidos.
 - **Último commit local**: ver `git log -1`; main sincronizado con `origin/main` (push completado en este cierre).
 - **Contexto**: Codex estuvo ausente; OpenCode actuó como orquestador temporal con protocolo de relevo (leer AGENTS/TASKS/HANDOFF/PROJECT_STATUS/DECISIONS, verificar git antes de tocar, bloques verificables, commit+push+sync tras cada bloque). origin/main es la fuente de verdad y quedó sincronizado.
@@ -48,8 +48,8 @@ Git al iniciar esta fase: main dos commits delante del remoto; TASKS y HANDOFF s
 - `assembleDebug testDebugUnitTest lintDebug assembleDebugAndroidTest` → **BUILD SUCCESSFUL** (72 tests en ese momento; 77 tras las correcciones de este bloque).
 - Tests JVM: **72 tests, 0 fallos, 0 errores** (11 nuevos en `DiagnosticsTest`: precedencia de estado, ventana de 24 h para errores recientes, clamping del periodo, conteos/nombres/slugs, próxima ejecución, líneas de UI, pausa).
 - Lint: **0 errores, 19 advertencias** (todas preexistentes, ninguna nueva).
-- **No se instaló ni instrumentó en 8912c62d** (restricción explícita del usuario: no reinstalar producción). La pantalla con datos reales del teléfono y el efecto de cambiar intervalo/pausar sobre los jobs reales son NOT VERIFIED y deben comprobarse en el siguiente relevo abriendo Ajustes → Diagnóstico en el propio teléfono.
-- Producción/QA intactas; no se tocó radar.db ni following; no se ejecutó connectedDebugAndroidTest.
+- **VERIFIED físicamente por el usuario (2026-09-21)** en Mérito Radar producción: pantalla Ajustes → Diagnóstico con datos reales del teléfono, persistencia del intervalo y cambios 15→30→60→15, pausa y reanudación, refresco del diagnóstico al regresar de la configuración Android, conservación de la base y datos existentes, worker funcionando y un único trabajo periódico activo al finalizar. No se ejecutó connectedDebugAndroidTest; la verificación fue de UI en producción sin borrar datos.
+- Producción/QA intactas; no se tocó radar.db ni following.
 
 ## Pruebas y resultados — resumen completo del turno anterior (grabado aquí)
 
@@ -65,8 +65,6 @@ Git al iniciar esta fase: main dos commits delante del remoto; TASKS y HANDOFF s
 
 - Entrega física de novedad crítica real con pantalla bloqueada/app cerrada (worker → outbox → bandeja → deep link).
 - Paginación real de un micrositio con más de 3 páginas (hoy DIAN 2676 tiene una página).
-- Pantalla Ajustes → Diagnóstico con los datos reales del teléfono (lógica pura verificada en JVM; sin instalar en esta sesión por restricción).
-- Efecto real del cambio de frecuencia y de pausar/reanudar sobre los jobs de WorkManager del dispositivo.
 - Migración de una base histórica real con datos previos del usuario.
 - Comportamiento prolongado bajo Doze/restricciones OEM.
 - Recordatorio de apertura/cierre y cancelación por aplazamiento en producción real.
@@ -95,12 +93,12 @@ Git al iniciar esta fase: main dos commits delante del remoto; TASKS y HANDOFF s
 
 ## Siguiente tarea recomendada
 
-Verificación física sobre el bloque cerrado y los pendientes de alertas: abrir en 8912c62d Ajustes → Diagnóstico (nueva versión instalable sin desinstalar, `pm install -r`) y confirmar estado general, frecuencia y pausa/reanudar con datos reales; luego continuar con el ítem 2 (entrega física con pantalla bloqueada) y 5 (Doze prolongado), que necesitan novedades reales. TASKS.md ordena el trabajo: 8 (estado del dispositivo) ya está actualizado; el diagnóstico permite observar el funcionamiento sin repoblar a ciegas.
+La verificación física del diagnóstico y las preferencias quedó completada por el usuario en producción (pantalla Ajustes → Diagnóstico, frecuencia 15→30→60→15, pausa/reanudar, refresco al volver de configuración Android, worker y un único trabajo periódico activo). Continuar con los pendientes que esperan una novedad oficial real: ítem 2 (entrega física con pantalla bloqueada/app cerrada) y 5 (Doze prolongado). TASKS.md ordena el trabajo: 8 (estado del dispositivo) está actualizado y el diagnóstico permite observar el funcionamiento sin repoblar a ciegas.
 
 ## Tareas que requieren especialmente revisión de Codex
 
 1. Confirmar que `main == origin/main` tras este relevo y que el commit del bloque quedó pusheado.
-2. Verificar físicamente el diagnóstico y las preferencias en el teléfono (pantalla, cambio de frecuencia, pausa/reanudar) y registrar en STATUS lo observado.
+2. La verificación física del diagnóstico/preferencias ya fue realizada por el usuario en producción (2026-09-21) y quedó registrada en STATUS/TASKS; si se desea, reabrir la UI para observaciones puntuales sin cambiar following.
 3. Decidir si versionar los JSON de esquema en una única carpeta (hoy duplicados en `schemas/` y `src/androidTest/assets/`).
 4. Si se instaló la nueva versión, evaluar el ítem fallo-de-esquema de instalaciones previas (columna slug nullable en versiones v3 antiguas).
 5. Revisar que `RealCatalogTest` no se ejecute en CI sin control (abre red real y muta following).
@@ -111,4 +109,4 @@ Verificación física sobre el bloque cerrado y los pendientes de alertas: abrir
 2. Releer los triggers de refresco (`LifecycleEventEffect(ON_RESUME)` y `LaunchedEffect(tab)` en MainActivity, `refreshAndroidEnvironment` en repository/viewmodel): que sean por ciclo de vida y no polling, y que el `combine` consuma el StateFlow.
 3. Releer `CnscMonitoringWorker.schedule/updateInterval/resume`: KEEP solo en arranque normal, UPDATE en cambio de intervalo y en reanudar; exactamente un trabajo periódico activo; ningún REPLACE.
 4. Ejecutar las regresiones nuevas: `selectActivePeriodicIgnoresHistoricalFinishedState`, `selectActivePeriodicWithoutActiveWorkIsNull`, `environmentRefreshConvergesDiagnosticsWhenPlatformChanges`, `resumeAfterPauseDerivesActiveProgram`, `successiveIntervalChangesKeepClampingAndDailyRuns`.
-5. Confirmar en el teléfono (verificación física NOT VERIFIED de este bloque) el refresco de permiso/canales/batería al volver de los Ajustes del sistema y el efecto real de pausa/reanudar y cambio de intervalo sobre los jobs de WorkManager.
+5. La verificación física de este bloque (refresco de permiso/canales/batería al volver de los Ajustes del sistema, pausa/reanudar y cambio de intervalo sobre los jobs de WorkManager, pantalla con datos reales) fue completada por el usuario en producción y registrada en STATUS; revisar la coherencia de los registros o ampliarlos con observaciones puntuales si lo considera necesario.
