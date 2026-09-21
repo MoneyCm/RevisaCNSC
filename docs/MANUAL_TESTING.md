@@ -6,7 +6,7 @@
   - `adb install -r app-debug.apk` y `adb install -r app-debug-androidTest.apk` (requiere "Instalar vía USB" en Xiaomi)
   - `adb shell am instrument -w -r -e class co.meritoradar.app.MigrationTest co.meritoradar.app.test/androidx.test.runner.AndroidJUnitRunner`
 - La suite usa la DB aislada "migration-test" y siembra datos propios; verificó conservación en 1→2 (sigue following, crea content_cache), 2→3 (sigue processes/following/content_cache, slug queda '') y 1→3 completa.
-- Comprobar que radar.db real no se modifica (los tests no la abren) y que MIGRATION_2_3 produce slug NOT NULL.
+- Comprobar que radar.db real no se modifica por la suite (los tests no la abren) y que MIGRATION_2_3 produce slug NOT NULL. NOTA: al iniciar este bloque la app principal estaba desinstalada del 8912c62d; reinstalar creó una radar.db nueva (27 procesos reobtenidos, seguidos/actividad reseteados). No usar los datos del teléfono como evidencia de migración con historial previo.
 - Migración desde una base histórica real con datos del usuario previos: NOT VERIFIED (los tests no usan datos CNSC reales, se siembran).
 
 ## Historial de publicaciones — 2026-09-21
