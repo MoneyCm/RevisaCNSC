@@ -168,19 +168,12 @@ class CnscMonitoringWorker(
         const val WORK_NAME = "CnscMonitoringWorker"
         const val TAG = "CnscMonitoring"
 
-        /**
-         * Schedule periodic monitoring work. The stored preference interval_minutes
-         * overrides the default so a preference change survives an app restart.
-         */
-        fun schedule(context: Context, intervalMinutes: Int = 15) {
-            val prefs = context.getSharedPreferences("monitor_schedule", Context.MODE_PRIVATE)
-            val interval = prefs.getInt("interval_minutes", intervalMinutes).coerceAtLeast(15)
+        private fun periodicRequest(context: Context, intervalMinutes: Int): PeriodicWorkRequest {
             val constraints = Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED)
                 .build()
-
-            val workRequest = PeriodicWorkRequestBuilder<CnscMonitoringWorker>(
-                interval.toLong(),
+            return PeriodicWorkRequestBuilder<CnscMonitoringWorker>(
+                intervalMinutes.toLong(),
                 TimeUnit.MINUTES
             )
                 .setConstraints(constraints)
@@ -191,6 +184,16 @@ class CnscMonitoringWorker(
                 )
                 .addTag(TAG)
                 .build()
+        }
+
+        /**
+         * Schedule periodic monitoring work. The stored preference interval_minutes
+         * overrides the default so a preference change survives an app restart.
+         * Uses KEEP so an already-scheduled periodic work is not recreated on a normal start.
+         */
+        fun schedule(context: Context, intervalMinutes: Int = 15) {
+            val prefs = context.getSharedPreferences("monitor_schedule", Context.MODE_PRIVATE)
+            val interval = prefs.getInt("interval_minutes", intervalMinutes).coerceAtLeast(15)
 
             if (!prefs.getBoolean("interval_fixed_v1", false)) {
                 WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
@@ -199,7 +202,7 @@ class CnscMonitoringWorker(
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(
                 WORK_NAME,
                 ExistingPeriodicWorkPolicy.KEEP,
-                workRequest
+                periodicRequest(context, interval)
             )
         }
 
@@ -212,25 +215,26 @@ class CnscMonitoringWorker(
             val interval = intervalMinutes.coerceAtLeast(15)
             context.getSharedPreferences("monitor_schedule", Context.MODE_PRIVATE)
                 .edit().putInt("interval_minutes", interval).apply()
-            val constraints = Constraints.Builder()
-                .setRequiredNetworkType(NetworkType.CONNECTED)
-                .build()
-            val workRequest = PeriodicWorkRequestBuilder<CnscMonitoringWorker>(
-                interval.toLong(),
-                TimeUnit.MINUTES
-            )
-                .setConstraints(constraints)
-                .setBackoffCriteria(
-                    BackoffPolicy.LINEAR,
-                    30,
-                    TimeUnit.SECONDS
-                )
-                .addTag(TAG)
-                .build()
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(
                 WORK_NAME,
                 ExistingPeriodicWorkPolicy.UPDATE,
-                workRequest
+                periodicRequest(context, interval)
+            )
+        }
+
+        /**
+         * Resume monitoring after a pause. UPDATE updates any pending work or re-enqueues
+         * after a cancellation and leaves exactly one active periodic work; it never
+         * touches following nor Room. KEEP cannot guarantee re-enqueue after a cancel,
+         * so resume uses UPDATE explicitly using the persisted interval.
+         */
+        fun resume(context: Context) {
+            val prefs = context.getSharedPreferences("monitor_schedule", Context.MODE_PRIVATE)
+            val interval = prefs.getInt("interval_minutes", 15).coerceAtLeast(15)
+            WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+                WORK_NAME,
+                ExistingPeriodicWorkPolicy.UPDATE,
+                periodicRequest(context, interval)
             )
         }
 

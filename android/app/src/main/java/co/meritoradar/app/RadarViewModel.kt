@@ -30,6 +30,7 @@ class RadarViewModel(application: Application) : AndroidViewModel(application) {
     init { refresh() }
     fun setMonitorInterval(minutes: Int) = viewModelScope.launch { repository.setMonitorInterval(minutes) }
     fun setMonitoringPaused(paused: Boolean) = viewModelScope.launch { repository.setMonitoringPaused(paused) }
+    fun refreshAndroidEnvironment() = repository.refreshAndroidEnvironment()
     fun refresh() {
         if (mutableSync.value.loading) return
         viewModelScope.launch {

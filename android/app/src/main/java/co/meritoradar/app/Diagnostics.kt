@@ -16,6 +16,15 @@ data class PeriodicWorkSnapshot(
     val periodic: Boolean = true
 )
 
+/** Representa el estado de un resultado de WorkInfo para el trabajo periódico único.
+ *  `getWorkInfosForUniqueWorkFlow` puede devolver también entradas históricas terminadas
+ *  (CANCELLED/SUCCEEDED/FAILED); la selección del trabajo vigente debe ignorarlas. */
+data class PeriodicWorkCandidate(
+    val state: String,
+    val runAttemptCount: Int,
+    val nextRunAtMillis: Long?
+)
+
 data class MicrositeDiagnosis(
     val processId: String,
     val processName: String,
@@ -179,6 +188,22 @@ object Diagnostics {
     }
 
     fun runsPerDay(periodMinutes: Int): Int = if (periodMinutes <= 0) 0 else (24 * 60) / periodMinutes
+
+    /**
+     * Selecciona de forma determinística el trabajo periódico actualmente activo.
+     * Un trabajo histórico CANCELLED/SUCCEEDED/FAILED nunca debe ganar sobre uno activo
+     * (ENQUEUED o RUNNING); si no hay trabajo activo devuelve null, que el diagnóstico
+     * interpreta como ausencia de programación.
+     */
+    fun selectActivePeriodic(candidates: List<PeriodicWorkCandidate>): PeriodicWorkSnapshot? {
+        val active = candidates.firstOrNull { it.state == "ENQUEUED" || it.state == "RUNNING" } ?: return null
+        return PeriodicWorkSnapshot(
+            state = active.state,
+            runAttemptCount = active.runAttemptCount,
+            nextRunAtMillis = active.nextRunAtMillis,
+            periodic = true
+        )
+    }
 
     fun build(
         now: Instant,

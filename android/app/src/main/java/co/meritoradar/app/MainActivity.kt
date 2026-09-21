@@ -24,6 +24,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import java.time.OffsetDateTime
@@ -95,6 +97,8 @@ fun RadarScreen(linkedId: String?, vm: RadarViewModel = viewModel()) {
     var history by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(linkedId) { if (linkedId != null) selected = linkedId }
     LaunchedEffect(selected) { selected?.let { vm.loadDetail(it) } }
+    LaunchedEffect(tab) { if (tab == "Ajustes") vm.refreshAndroidEnvironment() }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.refreshAndroidEnvironment() }
     BackHandler(enabled = selected != null) { selected = null }
     val detail = processes.find { it.id == selected }
     val tabs = listOf("Inicio" to Icons.Default.Home, "Concursos" to Icons.AutoMirrored.Filled.List,

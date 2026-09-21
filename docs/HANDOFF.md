@@ -12,10 +12,26 @@ Git al iniciar esta fase: main dos commits delante del remoto; TASKS y HANDOFF s
 
 # HANDOFF — Relevo de OpenCode (orquestador temporal) a Codex
 
-- **Fecha**: 2026-09-21 (última actualización al cierre del bloque de diagnóstico y preferencias).
-- **Estado actual del proyecto**: Android local-first de vigilancia CNSC (Mérito Radar) funcional y verificado hasta el cierre de esta sesión. Consulta CNSC directamente (OkHttp + TLS corregido), persiste en Room (v3), detecta avisos locales, proyecta fechas conservadoramente y genera notificaciones locales. Backend FastAPI/PostgreSQL es tooling de referencia, no requisito de ejecución. Ahora incluye diagnóstico en la app y preferencias de frecuencia/pausa cumplibles por la arquitectura.
+- **Fecha**: 2026-09-21 (última actualización al cierre del bloque de correcciones de la auditoría QA de Devin).
+- **Estado actual del proyecto**: Android local-first de vigilancia CNSC (Mérito Radar) funcional y verificado hasta el cierre de esta sesión. Consulta CNSC directamente (OkHttp + TLS corregido), persiste en Room (v3), detecta avisos locales, proyecta fechas conservadoramente y genera notificaciones locales. Backend FastAPI/PostgreSQL es tooling de referencia, no requisito de ejecución. Ahora incluye diagnóstico en la app y preferencias de frecuencia/pausa cumplibles por la arquitectura, con los hallazgos de la auditoría QA de Devin corregidos.
 - **Último commit local**: ver `git log -1`; main sincronizado con `origin/main` (push completado en este cierre).
 - **Contexto**: Codex estuvo ausente; OpenCode actuó como orquestador temporal con protocolo de relevo (leer AGENTS/TASKS/HANDOFF/PROJECT_STATUS/DECISIONS, verificar git antes de tocar, bloques verificables, commit+push+sync tras cada bloque). origin/main es la fuente de verdad y quedó sincronizado.
+
+## Resumen del bloque actual — Correcciones de la auditoría QA de Devin (ac8e6b4)
+
+1. **WorkInfo vigente**: `observePeriodicWork()` ya no usa `firstOrNull()` sobre todos los trabajos históricos del nombre único. Cada `WorkInfo` se mapea a `PeriodicWorkCandidate` y `Diagnostics.selectActivePeriodic` selecciona determinísticamente el trabajo activo (ENQUEUED o RUNNING); históricos CANCELLED/SUCCEEDED/FAILED no generan un AT_RISK falso si existe un trabajo activo. Sin trabajo activo → null (ausencia de programación), interpretada como AT_RISK salvo pausa (PAUSED prevalece). Regresiones: CANCELLED+ENQUEUED, CANCELLED+RUNNING, solo CANCELLED, lista vacía y FAILED/SUCCEEDED sin activo.
+2. **Refresco del entorno Android**: `_androidEnvironment` es un `MutableStateFlow` re-lecto por `repository.refreshAndroidEnvironment()`; sin polling continuo. Disparado por `LifecycleEventEffect(Lifecycle.Event.ON_RESUME)` (regreso a la app desde Ajustes del sistema) y por `LaunchedEffect(tab)` al entrar a la pestaña Ajustes. El `combine` usa el StateFlow.
+3. **Pausa/reanudación**: `schedule` conserva `ExistingPeriodicWorkPolicy.KEEP` para el arranque normal (no recrea); request extraído a `periodicRequest(interval)`. Reanudar usa el nuevo `CnscMonitoringWorker.resume` con `ExistingPeriodicWorkPolicy.UPDATE` y el intervalo persistido: actualiza el pendiente si existe o re-encola tras una cancelación, dejando exactamente un trabajo periódico activo; no toca following ni Room. No se usa REPLACE (deprecado). Regresiones: reanudar tras pausa deriva programa activo y cambios sucesivos 15→30→60→15 conservan clamping y runsPerDay.
+4. **Zona horaria**: auditado y documentado, NO es bug. `checkedAt` se genera siempre como `Instant.now().toString()` (ISO-8601 UTC `Z`) y se renderiza en Bogotá con `OffsetDateTime.parse`; Diagnostics parsea con `Instant.parse`. No se modificó lógica de zona horaria.
+5. **nextRunAt a 7 días**: mejora opcional fuera del alcance de este bloque; no implementada.
+
+## Verificación del bloque actual (correcciones QA)
+
+- `assembleDebug testDebugUnitTest lintDebug assembleDebugAndroidTest` → **BUILD SUCCESSFUL**.
+- Tests JVM: **77 tests, 0 fallos, 0 errores** (5 regresiones nuevas en `DiagnosticsTest`; suite completa).
+- Lint: **0 errores, 19 advertencias** (todas preexistentes, ninguna nueva).
+- **No se instaló ni instrumentó en 8912c62d** (restricción explícita del usuario). NOT VERIFIED físico: los triggers de ciclo de vida refrescando permiso/canales/batería frente a cambios reales del sistema, y el efecto real de KEEP/UPDATE sobre los jobs de WorkManager (reanudar tras cancelación y cambio de intervalo).
+- Producción/QA intactas; no se tocó radar.db ni following; no se ejecutó connectedDebugAndroidTest.
 
 ## Resumen del bloque actual — Diagnóstico y preferencias (NEXT_TASKS 7)
 
@@ -27,10 +43,9 @@ Git al iniciar esta fase: main dos commits delante del remoto; TASKS y HANDOFF s
    - Frecuencia 15/30/60/120 min: `CnscMonitoringWorker.updateInterval` persiste `interval_minutes` y reemplaza el trabajo único (`ExistingPeriodicWorkPolicy.UPDATE`); `schedule()` y `RadarApp.onCreate` reutilizan la preferencia (intervalo y pausa sobreviven reinicios). Mínimo real de WorkManager (15 min) aplicado con `coerceAtLeast`.
    - Pausar/reanudar vigilancia: `monitoring_paused_v1`; pausar cancela el trabajo único, reanudar lo reprograma.
    - No modifica `following` desde Ajustes (botón navega a Concursos); sin toggle global de notificaciones (se delega a Android, DEC-008/DEC-015); sin backend.
+## Verificación del bloque previo (diagnóstico y preferencias)
 
-## Verificación del bloque actual
-
-- `assembleDebug testDebugUnitTest lintDebug assembleDebugAndroidTest` → **BUILD SUCCESSFUL**.
+- `assembleDebug testDebugUnitTest lintDebug assembleDebugAndroidTest` → **BUILD SUCCESSFUL** (72 tests en ese momento; 77 tras las correcciones de este bloque).
 - Tests JVM: **72 tests, 0 fallos, 0 errores** (11 nuevos en `DiagnosticsTest`: precedencia de estado, ventana de 24 h para errores recientes, clamping del periodo, conteos/nombres/slugs, próxima ejecución, líneas de UI, pausa).
 - Lint: **0 errores, 19 advertencias** (todas preexistentes, ninguna nueva).
 - **No se instaló ni instrumentó en 8912c62d** (restricción explícita del usuario: no reinstalar producción). La pantalla con datos reales del teléfono y el efecto de cambiar intervalo/pausar sobre los jobs reales son NOT VERIFIED y deben comprobarse en el siguiente relevo abriendo Ajustes → Diagnóstico en el propio teléfono.
@@ -64,7 +79,7 @@ Git al iniciar esta fase: main dos commits delante del remoto; TASKS y HANDOFF s
 
 ## Cambios de arquitectura
 
-- Ninguno estructural; se añade diagnóstico y preferencias sin cambios de esquema. `Diagnostics.kt` es lógica pura nueva; `CnscMonitoringWorker` gana `updateInterval` (UPDATE del trabajo único); `LocalNotifier` expone `channelStatuses()` (solo lectura). Preferencias en la SharedPreferences `monitor_schedule` ya existente (claves `interval_minutes` y `monitoring_paused_v1`).
+- Ninguno estructural; sin cambios de esquema. En este bloque de correcciones: `Diagnostics.selectActivePeriodic` (`PeriodicWorkCandidate`) selecciona el trabajo activo; `_androidEnvironment` pasó a `MutableStateFlow` con `refreshAndroidEnvironment()`; `CnscMonitoringWorker` gana `resume` (UPDATE) y extrae `periodicRequest`; la Activity refresca el entorno con `LifecycleEventEffect(ON_RESUME)` y `LaunchedEffect(tab)`.
 
 ## Tareas iniciadas pero incompletas
 
@@ -89,3 +104,11 @@ Verificación física sobre el bloque cerrado y los pendientes de alertas: abrir
 3. Decidir si versionar los JSON de esquema en una única carpeta (hoy duplicados en `schemas/` y `src/androidTest/assets/`).
 4. Si se instaló la nueva versión, evaluar el ítem fallo-de-esquema de instalaciones previas (columna slug nullable en versiones v3 antiguas).
 5. Revisar que `RealCatalogTest` no se ejecute en CI sin control (abre red real y muta following).
+
+## Qué debe volver a auditar Devin sobre este bloque
+
+1. Releer `Diagnostics.selectActivePeriodic` y `observePeriodicWork()`: la selección del trabajo activo (ENQUEUED/RUNNING) y la semántica de null como ausencia de programación frente a PAUSED.
+2. Releer los triggers de refresco (`LifecycleEventEffect(ON_RESUME)` y `LaunchedEffect(tab)` en MainActivity, `refreshAndroidEnvironment` en repository/viewmodel): que sean por ciclo de vida y no polling, y que el `combine` consuma el StateFlow.
+3. Releer `CnscMonitoringWorker.schedule/updateInterval/resume`: KEEP solo en arranque normal, UPDATE en cambio de intervalo y en reanudar; exactamente un trabajo periódico activo; ningún REPLACE.
+4. Ejecutar las regresiones nuevas: `selectActivePeriodicIgnoresHistoricalFinishedState`, `selectActivePeriodicWithoutActiveWorkIsNull`, `environmentRefreshConvergesDiagnosticsWhenPlatformChanges`, `resumeAfterPauseDerivesActiveProgram`, `successiveIntervalChangesKeepClampingAndDailyRuns`.
+5. Confirmar en el teléfono (verificación física NOT VERIFIED de este bloque) el refresco de permiso/canales/batería al volver de los Ajustes del sistema y el efecto real de pausa/reanudar y cambio de intervalo sobre los jobs de WorkManager.

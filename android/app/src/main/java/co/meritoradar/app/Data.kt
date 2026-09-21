@@ -10,7 +10,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.first
 import com.google.gson.annotations.SerializedName
@@ -159,14 +158,13 @@ class LocalRadarRepository(private val dao: RadarDao, private val context: andro
     fun observePeriodicWork(): Flow<PeriodicWorkSnapshot?> = workManager
         .getWorkInfosForUniqueWorkFlow(CnscMonitoringWorker.WORK_NAME)
         .map { infos ->
-            infos.firstOrNull()?.let {
-                PeriodicWorkSnapshot(
+            Diagnostics.selectActivePeriodic(infos.map {
+                PeriodicWorkCandidate(
                     state = it.state.name,
                     runAttemptCount = it.runAttemptCount,
-                    nextRunAtMillis = it.nextScheduleTimeMillis.takeIf { t -> t > 0L },
-                    periodic = true
+                    nextRunAtMillis = it.nextScheduleTimeMillis.takeIf { t -> t > 0L }
                 )
-            }
+            })
         }
 
     private fun androidEnvironment(): AndroidEnvironment {
@@ -180,7 +178,14 @@ class LocalRadarRepository(private val dao: RadarDao, private val context: andro
         )
     }
 
-    private fun androidEnvironmentFlow(): Flow<AndroidEnvironment> = flow { emit(androidEnvironment()) }
+    /** Entorno Android observable. No usa polling: se re-lee solo con un trigger explícito
+     *  de ciclo de vida (onResume de la Activity y al entrar en la pestaña Ajustes). */
+    private val _androidEnvironment = MutableStateFlow(androidEnvironment())
+    val androidEnvironment: StateFlow<AndroidEnvironment> = _androidEnvironment.asStateFlow()
+
+    fun refreshAndroidEnvironment() {
+        _androidEnvironment.value = androidEnvironment()
+    }
 
     val diagnostics: Flow<DiagnosticsSnapshot> = combine(
         processes,
@@ -190,7 +195,7 @@ class LocalRadarRepository(private val dao: RadarDao, private val context: andro
         observePeriodicWork(),
         monitorInterval,
         monitoringPaused,
-        androidEnvironmentFlow()
+        androidEnvironment
     ) { values ->
         Diagnostics.build(
             now = Instant.now(),
@@ -218,7 +223,7 @@ class LocalRadarRepository(private val dao: RadarDao, private val context: andro
         monitorPrefs.edit().putBoolean("monitoring_paused_v1", paused).apply()
         _monitoringPaused.value = paused
         if (paused) CnscMonitoringWorker.cancel(context)
-        else CnscMonitoringWorker.schedule(context, _monitorInterval.value)
+        else CnscMonitoringWorker.resume(context)
     }
 
     suspend fun refresh(): Health {

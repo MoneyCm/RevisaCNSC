@@ -158,4 +158,93 @@ class DiagnosticsTest {
         assertTrue("notificaciones", labels.any { it == "Notificaciones" })
         assertTrue("restricciones", labels.any { it.contains("Optimización de batería") })
     }
+
+    @Test fun selectActivePeriodicIgnoresHistoricalFinishedState() {
+        // Histórico CANCELLED + actual ENQUEUED → gana el actual activo.
+        val cancelledThenEnqueued = listOf(
+            PeriodicWorkCandidate("CANCELLED", 2, now().minusSeconds(900).toEpochMilli()),
+            PeriodicWorkCandidate("ENQUEUED", 0, now().plusSeconds(900).toEpochMilli())
+        )
+        val enqueued = Diagnostics.selectActivePeriodic(cancelledThenEnqueued)
+        assertEquals("ENQUEUED", enqueued?.state)
+        assertEquals(now().plusSeconds(900).toEpochMilli(), enqueued?.nextRunAtMillis)
+        // Histórico CANCELLED + actual RUNNING → gana RUNNING.
+        val cancelledThenRunning = listOf(
+            PeriodicWorkCandidate("CANCELLED", 1, null),
+            PeriodicWorkCandidate("RUNNING", 1, null)
+        )
+        assertEquals("RUNNING", Diagnostics.selectActivePeriodic(cancelledThenRunning)?.state)
+        // Históricos terminados también pueden ser SUCCEEDED/FAILED antes del actual activo.
+        assertEquals("ENQUEUED", Diagnostics.selectActivePeriodic(listOf(
+            PeriodicWorkCandidate("SUCCEEDED", 3, null),
+            PeriodicWorkCandidate("FAILED", 1, null),
+            PeriodicWorkCandidate("ENQUEUED", 0, null)
+        ))?.state)
+    }
+
+    @Test fun selectActivePeriodicWithoutActiveWorkIsNull() {
+        // Solo CANCELLED histórico → ausencia de programación.
+        assertNull(Diagnostics.selectActivePeriodic(listOf(PeriodicWorkCandidate("CANCELLED", 1, null))))
+        // Lista vacía → ausencia de programación.
+        assertNull(Diagnostics.selectActivePeriodic(emptyList()))
+        // Históricos SUCCEEDED/FAILED sin activo → ausencia de programación.
+        assertNull(Diagnostics.selectActivePeriodic(listOf(
+            PeriodicWorkCandidate("SUCCEEDED", 2, null),
+            PeriodicWorkCandidate("FAILED", 1, null)
+        )))
+    }
+
+    @Test fun environmentRefreshConvergesDiagnosticsWhenPlatformChanges() {
+        val processes = listOf(process("p1", "Proceso A", "proceso-a"))
+        fun build(permission: Boolean?): DiagnosticsSnapshot = Diagnostics.build(
+            now = now(), processes = processes, followedIds = setOf("p1"), checks = emptyList(),
+            noticeState = noticeState(1, 1, 0), noticeStateSavedAt = now(),
+            periodic = PeriodicWorkSnapshot("ENQUEUED", 1, null), periodMinutes = 15, paused = false,
+            notificationPermission = permission, channelsBlocked = emptyList(), batteryOptimizationExempt = false
+        )
+        // Antes del refresco el permiso estaba concedido (operativo); tras concederlo de nuevo
+        // la relectura vuelve a operativo; un cambio en el teléfono se refleja en el próximo build.
+        assertEquals(WatchStatus.OPERATIONAL, build(true).status)
+        assertEquals(WatchStatus.DEGRADED, build(false).status)
+        assertEquals(WatchStatus.OPERATIONAL, build(true).status)
+        // El endpoint que alimenta el entorno cambia la factura de canales bloqueados.
+        val blocked = Diagnostics.build(
+            now = now(), processes = processes, followedIds = setOf("p1"), checks = emptyList(),
+            noticeState = noticeState(1, 1, 0), noticeStateSavedAt = now(),
+            periodic = PeriodicWorkSnapshot("ENQUEUED", 1, null), periodMinutes = 15, paused = false,
+            notificationPermission = true, channelsBlocked = listOf("Información general"),
+            batteryOptimizationExempt = false
+        )
+        assertTrue(blocked.lines().any { it.label == "Notificaciones" && it.value.contains("bloqueado") })
+    }
+
+    @Test fun resumeAfterPauseDerivesActiveProgram() {
+        val empty: List<MicrositeDiagnosis> = emptyList()
+        // Pausa → sin trabajo activo y estado PAUSED.
+        assertEquals(WatchStatus.PAUSED, Diagnostics.status(true, null, true, empty, true).first)
+        // Reanudar → la re-programación activa vuelve a ser ENQUEUED y el estado retorna operativo.
+        assertEquals(WatchStatus.OPERATIONAL, Diagnostics.status(false, "ENQUEUED", true, empty, true).first)
+        val resumed = Diagnostics.build(
+            now = now(), processes = listOf(process("p1", "Proceso A", "proceso-a")), followedIds = setOf("p1"),
+            checks = emptyList(), noticeState = noticeState(1, 1, 0), noticeStateSavedAt = now(),
+            periodic = PeriodicWorkSnapshot("ENQUEUED", 1, now().plusSeconds(900).toEpochMilli()),
+            periodMinutes = 15, paused = false, notificationPermission = true, channelsBlocked = emptyList(),
+            batteryOptimizationExempt = false
+        )
+        assertFalse(resumed.paused)
+        assertEquals(WatchStatus.OPERATIONAL, resumed.status)
+        assertEquals(96, resumed.runsPerDay)
+        assertTrue(resumed.lines().any { it.label == "Programación actual" && it.value == "ENQUEUED" })
+    }
+
+    @Test fun successiveIntervalChangesKeepClampingAndDailyRuns() {
+        // Cambios sucesivos 15 → 30 → 60 → 15: el valor se acota a partir del mínimo de WorkManager.
+        val sequence = listOf(15, 30, 60, 120, 15).map(Diagnostics::coercePeriod)
+        assertEquals(listOf(15, 30, 60, 120, 15), sequence)
+        val daily = sequence.map(Diagnostics::runsPerDay)
+        assertEquals(listOf(96, 48, 24, 12, 96), daily)
+        // Un intervalo por debajo del mínimo se persiste reencuadre al mínimo, no como inválido.
+        assertEquals(15, Diagnostics.coercePeriod(5))
+        assertEquals(60, Diagnostics.coercePeriod(60))
+    }
 }
