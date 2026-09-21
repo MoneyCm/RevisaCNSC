@@ -1,5 +1,14 @@
 # Estado y registro de verificaciones
 
+## Último bloque — cierre de actividad DIAN, 2026-09-21
+- Conservados los avances existentes de outbox, revalidación y recordatorios; el lector ProcessActivity ya estaba integrado al retomar.
+- Corregido el encabezado del detalle: si existe actividad del micrositio, muestra Último aviso en lugar de Sin etapa confirmada. Mantiene título, publicación, revisión y enlace, sin afirmar etapa general.
+- Añadidas seis pruebas del lector: ejemplo sanitizado DIAN, distinción discapacidad/VRM, hitos, fechas futuras/imposibles, identidad, estructura y categoría.
+- VERIFIED: assembleDebug testDebugUnitTest lintDebug BUILD SUCCESSFUL; 47 tests JVM, cero fallos/errores; lint 0 errores/19 advertencias.
+- VERIFIED: install -r en 8912c62d, catálogo conserva 27 procesos. Detalle DIAN 2676 muestra Último aviso: Reclamaciones sobre certificado de discapacidad y sigue marcado Siguiendo. Título/fecha oficial observados: listado de respuestas a reclamaciones, 1 junio 2026 12:42.
+- Alcance: última publicación fechada de la página consultada; no prueba etapa vigente global ni cubre todo el historial. No se confirmó un anuncio general de inicio de VRM para DIAN. Ver SOURCES.
+- Deuda: un fallo al leer un micrositio seguido puede interrumpir la consolidación de avisos del ciclo; aislar errores por fuente conservando caché y un diagnóstico visible.
+
 ## Último bloque — recordatorios de apertura/cierre (NEXT_TASKS 5), 2026-09-20
 - Implementado NoticeReminder en NoticeEngine: candidatos por transcurso del tiempo, no por detección de fechas. Solo ventanas CONFIRMED/SCHEDULED con inicio y cierre; apertura se recuerda hasta 2 días antes del inicio, cierre hasta 2 días antes del fin y solo si la apertura ya empezó (openDays <= 0). La fecha cuenta en Bogotá.
 - Lógica pura y testeada: candidates() y key() (hash estable por proceso/etapa/tipo/fechas). Aplazamiento o cambio de fechas produce una clave nueva, de modo que la ventana nueva puede recordarse y el recordatorio anterior no se reemite con datos viejos.

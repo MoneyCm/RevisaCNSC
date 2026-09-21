@@ -41,5 +41,11 @@ La primera integración sólo descubre catálogo real. Noticias, calendario y ex
 Estos accesos usaron TLS verificado, robots.txt y pausa mínima de dos segundos. HTTP 200 valida accesibilidad, no la corrección de un parser todavía inexistente.
 
 
+## Micrositio de avisos DIAN 2676 (revisión 20–21 septiembre 2026)
+URL: https://www.cnsc.gov.co/convocatorias/dian-2676?field_tipo_de_contenido_convocat_target_id=64
+Robots permite el micrositio; no se descargan los adjuntos bajo /sites/default/files/. HTML HTTP 200 inspeccionado el 20: main h1 identifica DIAN 2676; .view-content .card contiene h5 button (título) y .views-field-created (fecha Bogotá).
+El título fechado más reciente observado es LISTADO DE RESPUESTAS A RECLAMACIONES FRENTE A LOS RESULTADOS DE LA VERIFICACIÓN DEL CERTIFICADO DE DISCAPACIDAD., publicado el 1 junio 2026 a las 12:42. La app mostró ese título/fecha en dispositivo el 21. Esto no acredita una etapa general VRM de todas las modalidades.
+ProcessActivity conserva solo título, resumen, fechas de publicación/revisión y URL; no guarda tablas con identificadores de aspirantes. Consulta a demanda con caché de 30 minutos y rotación de hasta tres micrositios seguidos por ciclo. Cobertura: página consultada, no historial completo ni fuente exhaustiva de etapa vigente. El test de regresión reconstruye la estructura mínima con título/fecha observados y omite datos personales.
+
 ## Cadena TLS observada el 20 septiembre 2026
 OpenSSL hacia www.cnsc.gov.co:443 con SNI mostró solo certificado final (*.cnsc.gov.co), emisor GeoTrust TLS RSA CA G1. Android rechazaba la cadena incompleta. Se obtuvo el intermedio desde https://cacerts.digicert.com/GeoTrustTLSRSACAG1.crt con HTTPS validado. Tras completar la cadena y conservar las raíces del sistema, el teléfono obtuvo HTTP 200. Ver DEC-010 para huella y mantenimiento.

@@ -128,7 +128,7 @@ fun RadarScreen(linkedId: String?, vm: RadarViewModel = viewModel()) {
                         Text("El año de convocatoria puede ser distinto al de inscripción. Estar en desarrollo no significa que puedas inscribirte ahora.")
                         identities[detail.id]?.let { OfficialButton(it.sourceUrl, "Ver avisos de esta convocatoria") }
                         Text("Estado del catálogo: ${if (detail.category == "IN_DEVELOPMENT") "en desarrollo" else "publicado por CNSC"}")
-                        Text(detailContent?.let {
+                        Text(activities[detail.id]?.let { "Último aviso: " + it.summary } ?: detailContent?.let {
                             stageSummary(it.stages).takeUnless { summary -> summary == "Sin etapa confirmada" }
                                 ?: officialActivitySummary(it.events) ?: "Sin etapa confirmada"
                         } ?: "Consultando etapas guardadas...")

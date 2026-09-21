@@ -1,5 +1,7 @@
 # Próximas tareas
 
+Actualización 2026-09-21: actividad de micrositio DIAN y resumen de detalle verificados; 47 tests JVM aprobados. Próximo ajuste de este flujo: aislar fallos de micrositios para no impedir consolidar avisos de otras fuentes. La última actividad no equivale a una etapa general confirmada.
+
 Orden de relevo al 2026-09-20. Contrastar con código y [STATUS.md](STATUS.md) antes de implementar.
 
 1. **Comprobar punto de control y preparar respaldo.** Consultar git log -1 y git status antes de comenzar. El punto inicial conserva también las limitaciones documentadas, no implica vigilancia completamente verificada. No hay remoto; publicar un respaldo solo con destino y autorización del usuario.

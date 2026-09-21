@@ -1,5 +1,12 @@
 # Checklist manual
 
+## Actividad DIAN — 2026-09-21
+- VERIFIED: 47 tests JVM, build/lint correctos (19 advertencias); install -r y detalle DIAN observado con Último aviso: Reclamaciones sobre certificado de discapacidad, 27 procesos conservados.
+- Abrir DIAN 2676 y comprobar título, fecha de publicación, revisión y enlace oficial del micrositio.
+- El aviso observado corresponde a reclamaciones del certificado de discapacidad: no debe etiquetarse como VRM general ni como inscripciones abiertas.
+- El encabezado del detalle debe mostrar la actividad encontrada cuando existe, sin repetir Sin etapa confirmada como resumen principal.
+- Pruebas JVM del lector cubren alcance discapacidad/VRM, hitos VRM, fechas futuras/imposibles, identidad incorrecta, estructura desconocida y filtro de contenido incorrecto.
+
 ## 2026-09-20 — Recordatorios de apertura/cierre
 - [x] Build y unitarias: assembleDebug testDebugUnitTest lintDebug; 41 tests JVM, 0 fallos; lint 0 errores / 19 advertencias.
 - [x] `adb install -r` en 8912c62d conservando 27 procesos / 4 seguidos; arranque sin crash; worker periódico y manual SUCCESS; notice_state intacto y firedReminders persistido como {}.
