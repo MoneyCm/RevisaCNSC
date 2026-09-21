@@ -1,5 +1,12 @@
 # Checklist manual
 
+## Aislamiento de micrositios — 2026-09-21
+- VERIFIED: 52 tests JVM, build y lint aprobados; install -r y worker SUCCESS en 8912c62d a las 09:18:55.
+- Suite ActivityRefreshTest: fuente que falla conserva dato previo y no impide guardar la siguiente; recuperación limpia diagnóstico; cancelación y fallo de persistencia se propagan; intentos recientes no acaparan la rotación.
+- Comprobar en dispositivo que los fallos guardados de concursos seguidos muestran nombre y fecha de intento, con caché disponible.
+- No generar avisos falsos ni alterar el sitio real para provocar fallos: los escenarios de fallo se ejercitan con adaptadores de prueba.
+- Persistencia/representación de un fallo real y recuperación automática: NOT VERIFIED hasta observarlos en dispositivo.
+
 ## Actividad DIAN — 2026-09-21
 - VERIFIED: 47 tests JVM, build/lint correctos (19 advertencias); install -r y detalle DIAN observado con Último aviso: Reclamaciones sobre certificado de discapacidad, 27 procesos conservados.
 - Abrir DIAN 2676 y comprobar título, fecha de publicación, revisión y enlace oficial del micrositio.

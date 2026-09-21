@@ -53,8 +53,12 @@ El permiso global no basta: Android traga notify() sin excepción en un canal co
 Android no permite a la app restaurar por API la importancia de un canal puesto en NONE; las pruebas instrumentadas deben usar canales dedicados y no mutar canales usados por otras pruebas ni esperar que el finally recupere el estado.
 
 ## DEC-014 — Identidad de notificación y pruebas aisladas
+
 Usar eventId completo como tag de NotificationManager, con ID numérico constante, para que dos hashes iguales no reemplacen eventos distintos. Incluir eventId en la URI del PendingIntent, además de los extras; los extras por sí solos no distinguen PendingIntents.
 La suite opcional notificationQa usa applicationId terminado en .qa y no inserta datos sintéticos en la app personal. Distinguir entrega del transporte, navegación del intent y representación del detalle; no convertir esas pruebas en afirmación de entrega de eventos reales bajo bloqueo.
+
+## Aislamiento de micrositios — 2026-09-21
+La lectura de cada micrositio es independiente: un error externo conserva su última actividad y no impide consolidar los avisos de las otras fuentes. Registrar diagnóstico por proceso en content_cache con fecha de intento; el siguiente éxito lo limpia. La rotación usa último intento, exitoso o fallido, con espera de 30 minutos y máximo tres por ciclo. Cancelaciones y errores de persistencia no se convierten en errores externos ni en éxito.
 
 ## DEC-012 — Fechas conservadoras en Android
 Proyectar ventanas desde publicaciones normalizadas conservadas en Room. Exigir inicio/fin, año, modalidad y población explícitos para CONFIRMED; no inferir horas. Fecha de publicación ordena fuentes y un conflicto simultáneo exige revisión. Aplazamiento invalida la etapa afectada, no anuncia suspensión de todo el proceso.

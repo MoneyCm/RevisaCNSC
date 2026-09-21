@@ -1,6 +1,6 @@
 # Próximas tareas
 
-Actualización 2026-09-21: actividad de micrositio DIAN y resumen de detalle verificados; 47 tests JVM aprobados. Próximo ajuste de este flujo: aislar fallos de micrositios para no impedir consolidar avisos de otras fuentes. La última actividad no equivale a una etapa general confirmada.
+Actualización 2026-09-21: actividad DIAN e aislamiento de fallos de micrositios implementados; 52 tests JVM aprobados. Siguiente bloque: conservar más publicaciones del historial con fecha/fuente, sin alertas retroactivas, y ampliar la paginación de forma acotada. La última actividad no equivale a una etapa general confirmada. Falta observar el diagnóstico de fallo real por micrositio en el teléfono.
 
 Orden de relevo al 2026-09-20. Contrastar con código y [STATUS.md](STATUS.md) antes de implementar.
 

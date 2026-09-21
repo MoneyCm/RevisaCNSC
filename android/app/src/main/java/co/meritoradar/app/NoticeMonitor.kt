@@ -88,14 +88,23 @@ if (!reachedBoundary) throw ParseError("Cobertura de avisos incompleta: más de 
         // Bounded rotation of followed microsites; does not create alerts from history.
         val followedForActivity = dao.following().first().toSet()
         val activityCache = dao.activities().first().associateBy { it.cacheKey.removePrefix("activity:") }
-        for (process in processes.filter { it.id in followedForActivity }
-            .filter { System.currentTimeMillis() - (activityCache[it.id]?.savedAt ?: 0L) > 1_800_000 }
-            .sortedBy { activityCache[it.id]?.savedAt ?: 0L }.take(3)) {
-            val source = process.officialUrl + "?field_tipo_de_contenido_convocat_target_id=64"
-            val response = fetch(source)
-            val activity = ProcessActivityParser.parse(process, response.html, source, Instant.now())
-            dao.cache(ContentCache("activity:" + process.id, gson.toJson(activity), System.currentTimeMillis()))
+        val attempts = activityCache.mapValues { it.value.savedAt }.toMutableMap()
+        dao.activityChecks().first().forEach {
+            val id = it.cacheKey.removePrefix("activity_check:")
+            attempts[id] = maxOf(attempts[id] ?: 0L, it.savedAt)
         }
+        ActivityRefresh.run(ActivityRefresh.candidates(processes, followedForActivity, attempts, System.currentTimeMillis()),
+            read = { process ->
+                val source = process.officialUrl + "?field_tipo_de_contenido_convocat_target_id=64"
+                ProcessActivityParser.parse(process, fetch(source).html, source, Instant.now())
+            },
+            save = { process, activity ->
+                dao.cache(ContentCache("activity:" + process.id, gson.toJson(activity), System.currentTimeMillis()))
+            },
+            report = { process, error ->
+                val check = ActivityCheck(process.id, process.name, Instant.now().toString(), error)
+                dao.cache(ContentCache("activity_check:" + process.id, gson.toJson(check), System.currentTimeMillis()))
+            })
         val followed = dao.following().first().toSet()
         state = NoticeEngine.merge(state, incoming, processes, followed, Instant.now())
             .copy(validators = validators, revalidatedAt = revalidatedAt)

@@ -13,6 +13,7 @@ class RadarViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = (application as RadarApp).repository
     private val selectedId = MutableStateFlow<String?>(null)
     val identities = repository.identities.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+    val activityChecks = repository.activityChecks.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val activities = repository.activities.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
     val stageSummaries = repository.stageSummaries.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
     val detailContent = selectedId.flatMapLatest { id -> if (id == null) flowOf(null) else repository.observeDetail(id) }

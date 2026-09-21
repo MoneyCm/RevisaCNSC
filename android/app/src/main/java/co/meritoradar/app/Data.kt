@@ -70,6 +70,7 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
 
 @Dao
 interface RadarDao {
+    @Query("SELECT * FROM content_cache WHERE cacheKey LIKE 'activity_check:%'") fun activityChecks(): Flow<List<ContentCache>>
     @Query("SELECT * FROM content_cache WHERE cacheKey LIKE 'activity:%'") fun activities(): Flow<List<ContentCache>>
     @Query("SELECT * FROM content_cache WHERE cacheKey LIKE 'identity:%'") fun identities(): Flow<List<ContentCache>>
     @Query("SELECT * FROM content_cache WHERE cacheKey LIKE 'detail:%'") fun details(): Flow<List<ContentCache>>
@@ -110,6 +111,9 @@ abstract class LegacyRadarDatabase : RoomDatabase() {
 
 class LocalRadarRepository(private val dao: RadarDao, private val context: android.content.Context) {
     private val gson = Gson()
+    val activityChecks = dao.activityChecks().map { entries ->
+        entries.map { gson.fromJson(it.payload, ActivityCheck::class.java) }
+    }
     val activities = dao.activities().map { entries -> entries.associate {
         it.cacheKey.removePrefix("activity:") to gson.fromJson(it.payload, ProcessActivity::class.java)
     } }
@@ -135,7 +139,10 @@ class LocalRadarRepository(private val dao: RadarDao, private val context: andro
         if (result.state != androidx.work.WorkInfo.State.SUCCEEDED) {
             throw java.io.IOException(result.outputData.getString("error") ?: "No se pudo completar la revisión.")
         }
-        return Health("operational", result.outputData.getString("checkedAt"), 2, 0, 0)
+        val followed = dao.following().first().toSet()
+        val failures = activityChecks.first().count { it.processId in followed && it.error != null }
+        return Health(if (failures == 0) "operational" else "degraded",
+            result.outputData.getString("checkedAt"), 2, failures, 0)
     }
 
     fun observeWorkManagerStatus(): Flow<String> {
@@ -179,6 +186,9 @@ class LocalRadarRepository(private val dao: RadarDao, private val context: andro
                     val parsed = ProcessIdentityParser.parse(process, response.html, url, java.time.Instant.now().toString())
                     val activityParsed = ProcessActivityParser.parse(process, response.html, url, java.time.Instant.now())
                     dao.cache(ContentCache("activity:" + id, gson.toJson(activityParsed), System.currentTimeMillis()))
+                    dao.cache(ContentCache("activity_check:" + id,
+                        gson.toJson(ActivityCheck(id, process.name, java.time.Instant.now().toString(), null)),
+                        System.currentTimeMillis()))
                     dao.cache(ContentCache("identity:" + id, gson.toJson(parsed), System.currentTimeMillis()))
                 } finally { http.close() }
             }

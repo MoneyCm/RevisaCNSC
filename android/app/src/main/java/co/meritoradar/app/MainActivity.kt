@@ -78,6 +78,7 @@ fun RadarScreen(linkedId: String?, vm: RadarViewModel = viewModel()) {
     var notificationTestResult by rememberSaveable { mutableStateOf<String?>(null) }
     val processes by vm.processes.collectAsStateWithLifecycle()
     val identities by vm.identities.collectAsStateWithLifecycle()
+    val activityChecks by vm.activityChecks.collectAsStateWithLifecycle()
     val activities by vm.activities.collectAsStateWithLifecycle()
     val stageSummaries by vm.stageSummaries.collectAsStateWithLifecycle()
     val following by vm.following.collectAsStateWithLifecycle()
@@ -111,6 +112,10 @@ fun RadarScreen(linkedId: String?, vm: RadarViewModel = viewModel()) {
             item {
                 if (sync.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
                 sync.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                activityChecks.filter { it.processId in following && it.error != null }.forEach { check ->
+                    Text(check.processName + ": " + check.error + " Intento: " + displayDate(check.checkedAt),
+                        color = MaterialTheme.colorScheme.error)
+                }
                 Text("Catálogo CNSC · ${processes.size} procesos guardados")
                 Text("Última revisión: " + (sync.health?.lastRun?.let(::displayDate)
                     ?: processes.maxOfOrNull { it.lastCheckedAt }?.let(::displayDate) ?: "Sin revisión"))

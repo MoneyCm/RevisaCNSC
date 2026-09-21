@@ -1,5 +1,14 @@
 # Estado y registro de verificaciones
 
+## Último bloque — aislamiento de micrositios, 2026-09-21
+- ActivityRefresh permite continuar cuando falla la lectura o el parser de un micrositio seguido; conserva su caché y no bloquea la consolidación de avisos del ciclo.
+- Diagnóstico persistido en activity_check por proceso, con nombre y fecha del intento, visible para los seguidos. El éxito periódico o desde Actualizar detalle limpia el error. Health marca degraded cuando hay diagnósticos pendientes de seguidos.
+- Rotación limitada a tres micrositios por ciclo y 30 minutos desde el último intento, incluidos fallos, para no acaparar el turno. Cancelación y errores de base de datos se propagan.
+- VERIFIED: assembleDebug testDebugUnitTest lintDebug BUILD SUCCESSFUL; 52 tests JVM, 0 fallos/errores, lint 0 errores/19 advertencias. Cinco tests nuevos cubren continuidad/caché, recuperación, cancelación, persistencia fallida y rotación.
+- VERIFIED: install -r en 8912c62d y apertura; worker d49157d6-903c-494e-b663-0628d34bc90f SUCCESS a las 09:18:55. No se inyectaron datos ni fallos ficticios en producción.
+- NOT VERIFIED: representación y recuperación de un fallo real por micrositio en dispositivo; lógica ejercitada con adaptadores de test. El índice principal y los fallos internos aún pueden detener el ciclo, intencionadamente.
+- Historial: revisión de diseño completada; el lector de actividad sigue conservando el último aviso fechado de una página. Persistir más publicaciones y ampliar paginación es el siguiente bloque, no implementado aquí.
+
 ## Último bloque — cierre de actividad DIAN, 2026-09-21
 - Conservados los avances existentes de outbox, revalidación y recordatorios; el lector ProcessActivity ya estaba integrado al retomar.
 - Corregido el encabezado del detalle: si existe actividad del micrositio, muestra Último aviso en lugar de Sin etapa confirmada. Mantiene título, publicación, revisión y enlace, sin afirmar etapa general.
