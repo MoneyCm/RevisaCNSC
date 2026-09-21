@@ -1,5 +1,8 @@
 # Decisiones
 
+## DEC-018 — 2026-09-21 — Historial informativo, sin alertas retroactivas
+El detalle conserva varias publicaciones fechadas del micrositio (título, resumen, fecha Bogotá y URL de fuente) en ProcessActivity.publications, ordenadas desc, como historial informativo. Ese historial NO genera eventos ni alertas: la generación de novedades sigue limitada a avisos nuevos detectados por el índice y a recordatorios generados por transcurso del tiempo sobre ventanas CONFIRMED/SCHEDULED revisadas en la corrida. La paginación del historial es acotada (MAX_PAGES = 3), restringida al mismo micrositio oficial (host/hostname, path y categoría =64); un fallo de la primera página es un fallo visible, un fallo de página posterior conserva lo recogido. Motivo: mostrar la actividad real de un concurso sin convertir historia en falsas novedades ni sobrecargar fuentes.
+
 ## DEC-017 — 2026-09-20 — Recordatorios por transcurso del tiempo, no por detección
 Los recordatorios de apertura/cierre no son eventos de publicación: los genera NoticeReminder según la proximidad de la ventana confirmada (apertura 2 días antes del inicio; cierre 2 días antes del fin y solo tras comenzar, fechas en Bogotá). Solo etapas CONFIRMED/SCHEDULED de concursos seguidos y solo cuando la fuente de la etapa fue revisada en la corrida actual. La clave (hash de proceso|etapa|tipo|fechas) deduplica por ventana y cambia ante aplazamiento o cambio de fechas, de modo que lo viejo no se reemite y lo nuevo puede recordarse; el descarte de la outbox por ventana distinta o REVIEW_REQUIRED cancela un pendiente antes de entregarlo.
 

@@ -2,6 +2,7 @@ package co.meritoradar.app
 
 import org.junit.Assert.*
 import org.junit.Test
+import kotlinx.coroutines.runBlocking
 import java.time.Instant
 
 class ProcessActivityTest {
@@ -52,6 +53,64 @@ class ProcessActivityTest {
     @Test(expected = ParseError::class) fun wrongContestIsRejected() {
         ProcessActivityParser.parse(process, page(card("Aviso", "20/09/2026 - 12:00"))
             .replace("<h1>DIAN 2676</h1>", "<h1>DIAN 2022</h1>"), url, now)
+    }
+
+    @Test fun keepsOrderedHistoryWithSourceUrlAndNoRetroactiveAlerts() {
+        val result = ProcessActivityParser.parse(process, page(
+            card("Ampliación cierre de inscripciones DIAN 2676", "06/02/2026 - 16:18") +
+            card("LISTADO DE RESPUESTAS A RECLAMACIONES", "01/06/2026 - 12:42") +
+            card("Recuerdo. Cierre de inscripciones", "04/02/2026 - 18:31")
+        ), url, now)
+        assertEquals(3, result.noticesChecked)
+        assertEquals("LISTADO DE RESPUESTAS A RECLAMACIONES", result.title) // newer first
+        val ordered = result.publications.orEmpty().map { it.publishedAt }
+        assertEquals(listOf("2026-06-01T17:42:00Z", "2026-02-06T21:18:00Z", "2026-02-04T23:31:00Z"), ordered)
+        assertTrue(result.publications.orEmpty().all { it.sourceUrl == url })
+        assertEquals("Aviso oficial del concurso", result.publications?.last()?.summary)
+    }
+
+    @Test fun nextPageRequiresSameMicrositeAndAvisoCategory() {
+        val next = "<main><h1>DIAN 2676</h1><nav class='pager'><ul>" +
+            "<li class='pager__item--next'><a href='" + url + "&page=1'>Siguiente</a></li></ul></nav></main>"
+        assertEquals(url + "&page=1", ProcessActivityParser.nextPage(process, next, url))
+        val foreign = next.replace(url + "&page=1", "https://www.cnsc.gov.co/convocatorias/otro")
+        assertNull(ProcessActivityParser.nextPage(process, foreign, url))
+        val otherCategory = next.replace("&page=1", "&page=1#aviso").replace(url, url.replace("=64", "=65"))
+        assertNull(ProcessActivityParser.nextPage(process, otherCategory, url))
+        assertNull(ProcessActivityParser.nextPage(process, "<main><h1>DIAN 2676</h1></main>", url))
+    }
+
+    @Test fun parseAllFollowsBoundedPagesAndMergesHistory() = runBlocking {
+        val page1 = "<main><h1>DIAN 2676</h1><div class='view-content'>" +
+            card("Nuevo aviso reciente", "20/09/2026 - 12:00") +
+            "</div><nav class='pager'><ul><li class='pager__item--next'><a href='" + url + "&page=1'>Siguiente</a></li></ul></nav></main>"
+        val page2 = page(card("Resultados de VRM", "20/09/2025 - 12:00"))
+        val requests = mutableListOf<String>()
+        val result = ProcessActivityParser.parseAll(process, url,
+            { u -> requests.add(u); if (u.endsWith("&page=1")) page2 else page1 }, now)
+        assertEquals(listOf(url, url + "&page=1"), requests)
+        assertEquals(2, result.noticesChecked)
+        assertEquals("Nuevo aviso reciente", result.title)
+        assertEquals("Resultados de VRM", result.publications?.last()?.title)
+    }
+
+    @Test fun parseAllBoundsPagesAndToleratesLatePageFailure() = runBlocking {
+        var calls = 0
+        val page1 = "<main><h1>DIAN 2676</h1><div class='view-content'>" +
+            card("Aviso", "20/09/2026 - 12:00") +
+            "</div><nav class='pager'><ul><li class='pager__item--next'><a href='" + url + "&page=1'>Siguiente</a></li></ul></nav></main>"
+        val result = ProcessActivityParser.parseAll(process, url,
+            {
+                calls++
+                when (calls) {
+                    1 -> page1
+                    2 -> throw RuntimeException("caída de página")
+                    else -> throw IllegalStateException("no debe seguir")
+                }
+            }, now, maxPages = 2)
+        assertEquals(2, calls)
+        assertEquals("Aviso", result.title)
+        assertEquals(1, result.noticesChecked)
     }
 
     @Test(expected = ParseError::class) fun unknownStructureIsNotEmptySuccess() {

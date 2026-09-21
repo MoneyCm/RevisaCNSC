@@ -1,5 +1,12 @@
 # Checklist manual
 
+## Historial de publicaciones — 2026-09-21
+- VERIFIED: 56 tests JVM, build y lint aprobados (19 advertencias); install -r y worker en 8912c62d sin borrar datos.
+- Abrir un seguido de micrositio (ej. DIAN 2676), pulsar Actualizar detalle y comprobar que el detalle muestra varias publicaciones fechadas (hasta 5) con su fecha y la nota "Historial informativo conservado del micrositio; no genera alertas nuevas".
+- Comprobar en content_cache que activity:<id> ahora incluye publications con título, resumen, fecha Bogotá y fuente; DIAN 2676 conserva 15 publicaciones reales históricas.
+- El historial no debe crear avisos ni eventos nuevos: solo información; la consolidación de avisos del worker sigue usando el índice y los recordatorios requieren ventanas CONFIRMED revisadas.
+- Paginación real de un micrositio con más de tres páginas: NOT VERIFIED (DIAN hoy tiene una sola página sin paginador).
+
 ## Aislamiento de micrositios — 2026-09-21
 - VERIFIED: 52 tests JVM, build y lint aprobados; install -r y worker SUCCESS en 8912c62d a las 09:18:55.
 - Suite ActivityRefreshTest: fuente que falla conserva dato previo y no impide guardar la siguiente; recuperación limpia diagnóstico; cancelación y fallo de persistencia se propagan; intentos recientes no acaparan la rotación.

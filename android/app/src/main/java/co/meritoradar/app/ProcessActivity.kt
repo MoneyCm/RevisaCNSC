@@ -9,33 +9,91 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.ResolverStyle
 
+data class ActivityPublication(val title: String, val summary: String, val publishedAt: String,
+    val sourceUrl: String)
+
 data class ProcessActivity(val title: String, val summary: String, val publishedAt: String,
-    val sourceUrl: String, val checkedAt: String, val noticesChecked: Int)
+    val sourceUrl: String, val checkedAt: String, val noticesChecked: Int,
+    val publications: List<ActivityPublication>? = null)
 
 /** Reads only notice headings and dates; never persists applicant tables or identifiers. */
 object ProcessActivityParser {
+    const val MAX_PAGES = 3
+
+    /** Bounded, HTTP-driven history: sequential official microsite pages with 2 s spacing
+     * provided by the caller's fetch. A failure beyond the first page keeps collected data. */
+    suspend fun parseAll(process: Process, sourceUrl: String, fetch: suspend (String) -> String,
+        now: Instant, maxPages: Int = MAX_PAGES): ProcessActivity {
+        var url = sourceUrl
+        val collected = linkedSetOf<Pair<String, String>>()
+        for (page in 1..maxPages) {
+            val html = try { fetch(url) } catch (e: Exception) {
+                if (page == 1) throw e else break
+            }
+            collect(process, html, url, now, collected)
+            val next = nextPage(process, html, url) ?: break
+            url = next
+        }
+        if (collected.isEmpty()) throw ParseError("Sin avisos fechados reconocibles en micrositio")
+        return summarize(process, sourceUrl, now, collected.toList())
+    }
+
+    /** Pure parse of a single official microsite page; keeps the latest as summary fields. */
     fun parse(process: Process, html: String, sourceUrl: String, now: Instant): ProcessActivity {
+        val collected = linkedSetOf<Pair<String, String>>()
+        collect(process, html, sourceUrl, now, collected)
+        if (collected.isEmpty()) throw ParseError("Sin avisos fechados reconocibles en micrositio")
+        return summarize(process, sourceUrl, now, collected.toList())
+    }
+
+    private fun collect(process: Process, html: String, sourceUrl: String, now: Instant,
+        collected: MutableSet<Pair<String, String>>) {
         val source = sourceUrl.toHttpUrl()
         require(officialLink(sourceUrl) && source.queryParameter("field_tipo_de_contenido_convocat_target_id") == "64")
         require(source.toString().substringBefore('?') == process.officialUrl)
         val main = Jsoup.parse(html).selectFirst("main") ?: throw ParseError("Falta micrositio")
         if (!main.selectFirst("h1")?.text()?.trim().equals(process.name.trim(), true))
             throw ParseError("Identidad de convocatoria inesperada")
-        val notices = main.select(".view-content .card").mapNotNull { card ->
+        main.select(".view-content .card").forEach { card ->
             val title = card.selectFirst("h5 button")?.text()?.trim()?.takeIf { it.isNotEmpty() }
-                ?: return@mapNotNull null
+                ?: return@forEach
             val date = Regex("(\\d{2}/\\d{2}/\\d{4})\\s*-\\s*(\\d{2}:\\d{2})")
-                .find(card.selectFirst(".views-field-created")?.text().orEmpty()) ?: return@mapNotNull null
+                .find(card.selectFirst(".views-field-created")?.text().orEmpty()) ?: return@forEach
             val instant = runCatching {
                 LocalDateTime.parse(date.groupValues[1] + " " + date.groupValues[2],
                     DateTimeFormatter.ofPattern("dd/MM/uuuu HH:mm").withResolverStyle(ResolverStyle.STRICT))
                     .atZone(ZoneId.of("America/Bogota")).toInstant()
-            }.getOrNull() ?: return@mapNotNull null
-            if (instant > now) null else title to instant
+            }.getOrNull() ?: return@forEach
+            if (instant > now) return@forEach
+            collected.add(title to instant.toString())
         }
-        val latest = notices.maxByOrNull { it.second } ?: throw ParseError("Sin avisos fechados reconocibles en micrositio")
-        return ProcessActivity(latest.first, describe(latest.first), latest.second.toString(),
-            sourceUrl, now.toString(), notices.size)
+    }
+
+    private fun summarize(process: Process, sourceUrl: String, now: Instant,
+        items: List<Pair<String, String>>): ProcessActivity {
+        val ordered = items.sortedWith(compareByDescending<Pair<String, String>> { Instant.parse(it.second) })
+        val latest = ordered.first()
+        return ProcessActivity(latest.first, describe(latest.first), latest.second,
+            sourceUrl, now.toString(), ordered.size,
+            ordered.map { (title, publishedAt) ->
+                ActivityPublication(title, describe(title), publishedAt, sourceUrl)
+            })
+    }
+
+    /** Drupal pager on the same microsite: official host, same path, avisos category filter. */
+    fun nextPage(process: Process, html: String, sourceUrl: String): String? {
+        val link = Jsoup.parse(html).selectFirst("main .pager__item--next a[href]") ?: return null
+        val resolved = runCatching { sourceUrl.toHttpUrl().resolve(link.attr("href")) }
+            .getOrNull() ?: return null
+        val official = runCatching {
+            resolved.scheme == "https" && resolved.host in setOf("www.cnsc.gov.co", "cnsc.gov.co") &&
+                resolved.port == 443 && resolved.username.isEmpty() && resolved.password.isEmpty()
+        }.getOrDefault(false)
+        if (!official) return null
+        val expectedPath = runCatching { process.officialUrl.toHttpUrl().encodedPath }.getOrNull() ?: return null
+        if (resolved.encodedPath != expectedPath) return null
+        if (resolved.queryParameter("field_tipo_de_contenido_convocat_target_id") != "64") return null
+        return resolved.toString()
     }
 
     fun describe(title: String): String {

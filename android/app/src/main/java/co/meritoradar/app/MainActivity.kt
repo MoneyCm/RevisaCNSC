@@ -146,8 +146,19 @@ fun RadarScreen(linkedId: String?, vm: RadarViewModel = viewModel()) {
                             Text(activity.title)
                             Text("Publicado: " + displayDate(activity.publishedAt))
                             Text("Revisado: " + displayDate(activity.checkedAt))
-                            Text("Describe el último aviso fechado de la página consultada; puede referirse solo a una modalidad o población.")
+                            Text("Describe el último aviso fechado del historial conservado del micrositio; puede referirse solo a una modalidad o población.")
                             OfficialButton(activity.sourceUrl, "Ver aviso en el micrositio oficial")
+                            activity.publications.orEmpty().take(5).forEach { publication ->
+                                OutlinedCard(Modifier.fillMaxWidth()) {
+                                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Text(publication.summary, style = MaterialTheme.typography.titleSmall)
+                                        Text(publication.title, maxLines = 2)
+                                        Text("Publicado: " + displayDate(publication.publishedAt), style = MaterialTheme.typography.bodySmall)
+                                    }
+                                }
+                            }
+                            if ((activity.publications?.size ?: 0) > 5)
+                                Text("Historial informativo conservado del micrositio; no genera alertas nuevas.", style = MaterialTheme.typography.bodySmall)
                         }
                     }
                     item { Text("Fechas publicadas", style = MaterialTheme.typography.titleLarge) }

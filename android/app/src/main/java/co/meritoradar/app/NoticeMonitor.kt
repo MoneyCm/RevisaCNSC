@@ -96,7 +96,7 @@ if (!reachedBoundary) throw ParseError("Cobertura de avisos incompleta: más de 
         ActivityRefresh.run(ActivityRefresh.candidates(processes, followedForActivity, attempts, System.currentTimeMillis()),
             read = { process ->
                 val source = process.officialUrl + "?field_tipo_de_contenido_convocat_target_id=64"
-                ProcessActivityParser.parse(process, fetch(source).html, source, Instant.now())
+                ProcessActivityParser.parseAll(process, source, { fetch(it).html }, Instant.now())
             },
             save = { process, activity ->
                 dao.cache(ContentCache("activity:" + process.id, gson.toJson(activity), System.currentTimeMillis()))

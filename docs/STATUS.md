@@ -1,5 +1,14 @@
 # Estado y registro de verificaciones
 
+## Último bloque — historial de publicaciones del micrositio, 2026-09-21
+- Implementado `ProcessActivityParser.parseAll`: lee hasta tres páginas del micrositio oficial (paginador Drupal `main .pager__item--next a`, mismo host `cnsc.gov.co`, mismo path, filtro =64) y conserva todas las publicaciones fechadas (título, resumen, fecha Bogotá y URL de fuente) en `ProcessActivity.publications`, ordenadas desc y con el último aviso como campos principales. `parse()` conserva el contrato de una página. Un fallo de lectura de la primera página propaga (fallo visible); un fallo de página posterior conserva lo ya recogido.
+- El historial es informativo y conservador: la UI del detalle muestra hasta 5 publicaciones con su fecha más la nota "no genera alertas nuevas". No se generan eventos de aviso desde publicaciones históricas ni alertas retroactivas; los recordatorios de ventanas siguen dependiendo de las fechas de etapas CONFIRMED/SCHEDULED revisadas en la corrida.
+- Integración: NoticeMonitor (worker) y repository.detail (Actualizar detalle) usan parseAll sobre seguidos; la rotación acotada de ActivityRefresh y el límite de páginas evitan sobrecargar el micrositio.
+- VERIFIED: assembleDebug testDebugUnitTest lintDebug BUILD SUCCESSFUL; 56 tests JVM, 0 fallos/errores (4 nuevos en ProcessActivityTest: historial ordenado con fuente, nextPage restringida, seguimiento de páginas acotado con merge, tolerancia a fallo tardío de página); lint 0 errores/19 advertencias.
+- VERIFIED en 8912c62d: install -r del APK nuevo conservando 27 procesos/4 seguidos; tras Actualizar detalle en DIAN 2676 y una corrida del worker, la caché activity:10260d7a conserva checked=15 publicaciones=15 con historial fechado ordenado y la vista muestra la primera publicación histórica con su fecha y la nota informativa; Aerocivil (38), Antioquia 3 (29) y PGN (12) quedaron reescritos con publications. No se inyectaron datos CNSC ficticios.
+- NOT VERIFIED: paginación real de un micrositio con más de tres páginas (hoy DIAN 2676 tiene una sola página sin paginador; la ruta de paginación está cubierta por unitarias), y Visual >5 publicaciones (la UI limita a 5). La actualización completa del historial de seguidos depende de la rotación periódica.
+- Deuda previa conservada: PROJECT_STATUS menciona "sin remoto configurado"; el remoto origin sí está configurado y main está sincronizado con origin/main, corresponde corregir la redacción documental.
+
 ## Último bloque — aislamiento de micrositios, 2026-09-21
 - ActivityRefresh permite continuar cuando falla la lectura o el parser de un micrositio seguido; conserva su caché y no bloquea la consolidación de avisos del ciclo.
 - Diagnóstico persistido en activity_check por proceso, con nombre y fecha del intento, visible para los seguidos. El éxito periódico o desde Actualizar detalle limpia el error. Health marca degraded cuando hay diagnósticos pendientes de seguidos.

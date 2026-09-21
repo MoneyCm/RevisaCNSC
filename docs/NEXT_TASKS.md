@@ -1,6 +1,6 @@
 # Próximas tareas
 
-Actualización 2026-09-21: actividad DIAN e aislamiento de fallos de micrositios implementados; 52 tests JVM aprobados. Siguiente bloque: conservar más publicaciones del historial con fecha/fuente, sin alertas retroactivas, y ampliar la paginación de forma acotada. La última actividad no equivale a una etapa general confirmada. Falta observar el diagnóstico de fallo real por micrositio en el teléfono.
+Actualización 2026-09-21: historial de publicaciones del micrositio implementado (varias publicaciones con fecha/fuente conservadas, sin alertas retroactivas) con paginación acotada a tres páginas; 56 tests JVM aprobados. Verificado en 8912c62d con datos reales: DIAN 2676 conserva 15 publicaciones fechadas ordenadas y la vista muestra el historial con nota informativa. Siguiente bloque: migraciones Room instrumentadas (ver 6) y luego diagnóstico/preferencias (ver 7). La última actividad no equivale a una etapa general confirmada. Falta observar el diagnóstico de fallo real por micrositio en el teléfono.
 
 Orden de relevo al 2026-09-20. Contrastar con código y [STATUS.md](STATUS.md) antes de implementar.
 
@@ -11,6 +11,10 @@ Orden de relevo al 2026-09-20. Contrastar con código y [STATUS.md](STATUS.md) a
 5. **Recordatorios de apertura/cierre.** Implementados por transcurso del tiempo (NoticeReminder): ventanas CONFIRMED/SCHEDULED de seguidos, apertura ≤2 días antes del inicio y cierre ≤2 días antes del fin (solo tras abrir), claves estables por ventana que cancelan ante aplazamiento/cambio, solo cuando la fuente de la etapa se revisó en la corrida. VERIFIED: build + 41 tests JVM + lint (0 errores); instalación conservando datos con firedReminders persistido. NOT VERIFIED: entrega física de un recordatorio con ventana real cercana y cancelación por aplazamiento real en producción.
 6. **Migraciones Room.** Corregir errores de tests instrumentados registrados y ejecutar migraciones con datos conservados. No desinstalar ni borrar datos para hacer pasar una migración.
 7. **Diagnóstico y preferencias.** Revisar qué existe; completar última revisión, errores, alcance de fuentes, frecuencia y preferencias con estado real.
+
+## Historial — 2026-09-21
+
+- **Historial del micrositio con paginación acotada.** Implementado: `ProcessActivityParser.parseAll` conserva múltiples publicaciones (título, resumen, fecha en Bogotá y URL de fuente) en `ProcessActivity.publications`, ordenadas desc; sigue la paginación Drupal del mismo micrositio (`main .pager__item--next a`) limitada a `MAX_PAGES = 3`, sin salir del host/hostname oficial ni del path/otra categoría; un fallo de página posterior conserva lo ya recogido mientras un fallo de la primera página sigue siendo un fallo visible (ParseError). `parse()` se conserva con el mismo contrato de una página. La UI del detalle muestra hasta 5 publicaciones del historial con su fecha y la nota "no genera alertas nuevas"; los eventos de recordatorio siguen sin retroalimentar alertas desde el historial. VERIFIED: build + 56 tests JVM + lint (0 errores) y verificación física en 8912c62d (DIAN 2676 conserva 15 publicaciones; vista del historial visible tras Actualizar detalle; actualización por worker reescribe paquetes con publications). NOT VERIFIED: historial con micrositio que realmente tenga más de tres páginas y conservación de más de 5 publicaciones en pantalla.
 
 ## Validación Android
 
