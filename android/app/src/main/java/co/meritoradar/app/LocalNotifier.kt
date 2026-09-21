@@ -101,7 +101,8 @@ class LocalNotifier(private val context: Context) {
         // Create deep link intent
         val intent = Intent(context, MainActivity::class.java).apply {
             action = Intent.ACTION_VIEW
-            data = android.net.Uri.parse("meritoradar://process/$processId")
+            data = android.net.Uri.Builder().scheme("meritoradar").authority("process")
+                .appendPath(processId).appendQueryParameter("eventId", eventId).build()
             putExtra("eventId", eventId)
             putExtra("processId", processId)
         }
@@ -130,8 +131,8 @@ class LocalNotifier(private val context: Context) {
             .setContentIntent(pendingIntent)
             .build()
 
-        val notificationId = NOTIFICATION_ID_BASE + eventId.hashCode()
-        NotificationManagerCompat.from(context).notify(notificationId, notification)
+        // The full event ID is the identity: Java hashes can collide for distinct events.
+        NotificationManagerCompat.from(context).notify(eventId, NOTIFICATION_ID_BASE, notification)
     }
 
     /**

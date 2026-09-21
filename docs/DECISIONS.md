@@ -42,6 +42,10 @@ Room content_cache guarda estado, eventos y outbox en una transacción sin cambi
 ## DEC-013 — 2026-09-20 — Relevo secuencial y estado canónico
 Los agentes trabajan sucesivamente en la misma carpeta. STATUS conserva el registro de verificaciones, PROJECT_STATUS sirve de entrada y NEXT_TASKS ordena pendientes. No mantener dos historiales independientes. Un relevo informa pruebas, limitaciones y existencia real del commit; compartir carpeta no equivale a tener respaldo Git. La publicación remota requiere autorización y destino.
 
+## DEC-014 — Identidad de notificación y pruebas aisladas
+Usar eventId completo como tag de NotificationManager, con ID numérico constante, para que dos hashes iguales no reemplacen eventos distintos. Incluir eventId en la URI del PendingIntent, además de los extras; los extras por sí solos no distinguen PendingIntents.
+La suite opcional notificationQa usa applicationId terminado en .qa y no inserta datos sintéticos en la app personal. Distinguir entrega del transporte, navegación del intent y representación del detalle; no convertir esas pruebas en afirmación de entrega de eventos reales bajo bloqueo.
+
 ## DEC-012 — Fechas conservadoras en Android
 Proyectar ventanas desde publicaciones normalizadas conservadas en Room. Exigir inicio/fin, año, modalidad y población explícitos para CONFIRMED; no inferir horas. Fecha de publicación ordena fuentes y un conflicto simultáneo exige revisión. Aplazamiento invalida la etapa afectada, no anuncia suspensión de todo el proceso.
 Comparar estructura por proceso/etapa/modalidad/población; eventos guardan antes/después y extracto. Alertas críticas solo por ventanas vigentes de publicaciones recientes y concurso seguido; primera carga silenciosa. Antes de entregar, revalidar fechas y fuente en el ciclo actual. Recordatorios temporales quedan pendientes hasta verificar cobertura/frescura de fuentes antiguas.

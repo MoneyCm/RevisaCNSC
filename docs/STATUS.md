@@ -1,5 +1,14 @@
 # Estado y registro de verificaciones
 
+## Último bloque — pruebas aisladas de notificación, 2026-09-20
+- Corregida colisión de identidad: NotificationManager usa eventId completo como tag y el PendingIntent incorpora eventId en su URI. Dos strings con el mismo hash ya no se reemplazan.
+- Variante QA opcional (.qa), con suite propia en src/notificationTest: no inserta datos ficticios en Room. Las pruebas instrumentadas legacy de migración siguen pendientes y no se ejecutan en esta suite.
+- VERIFIED: assembleQa y assembleQaAndroidTest. En 8912c62d, NotificationDeliveryTest: OK (3 tests): repetición, eventos Aa/BB con mismo hash e intents distintos, apertura de MainActivity con processId y eventId correctos.
+- Primera ejecución: 2/3; el conteo incluía un aviso adicional. Ajustado para contar solo tags de eventos y excluir resúmenes de agrupación; segunda ejecución 3/3. No se modificó la lógica productiva para ocultar ese fallo de conteo.
+- VERIFIED: assembleDebug testDebugUnitTest lintDebug, 36 tests JVM aprobados, lint 0 errores/19 advertencias. App personal actualizada con install -r; UI conserva 27 procesos. QA detenida al terminar.
+- NOT VERIFIED: representación del detalle de un concurso real desde una alerta, selección visual del evento, entrega de novedad crítica con pantalla bloqueada, Doze prolongado y recuperación offline. La prueba de PendingIntent valida destino/identificadores, no esas condiciones.
+- Deuda detectada: NoticeMonitor comprueba permiso global, pero no bloqueo por canal antes de retirar un evento de la cola; revisar acuse de entrega y conservación de pendientes en ese caso.
+
 ## Último bloque — notificación de diagnóstico y periodo natural, 2026-09-20
 - Ajustes permite enviar una notificación silenciosa explícitamente de prueba y abrir la configuración Android. Informa bloqueo global/canal general y no afirma entrega física solo porque notify retorne.
 - VERIFIED: assembleDebug testDebugUnitTest lintDebug, BUILD SUCCESSFUL; 36 tests JVM, cero fallos/errores. APK instalada con install -r conservando 27 procesos.

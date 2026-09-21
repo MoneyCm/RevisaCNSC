@@ -10,7 +10,7 @@ Android consulta CNSC directamente, conserva datos en Room y tiene detección lo
 
 La última verificación registrada incluye compilación, lint, 36 tests JVM aprobados e instalación conservando datos. Los XML locales consultados durante este relevo confirman 36 tests, cero fallos y cero errores; no se volvieron a ejecutar en este bloque documental.
 
-Se verificó una notificación manual de diagnóstico visible en la bandeja y una ejecución automática natural con pantalla apagada al comprobarla; ver el último bloque de STATUS. La entrega de eventos reales con pantalla bloqueada, sus deep links y las migraciones instrumentadas siguen NOT VERIFIED. La cobertura de avisos antiguos y los recordatorios temporales requieren trabajo. No declarar terminada la vigilancia completa.
+Se verificó una notificación manual visible, una ejecución automática natural y tres pruebas instrumentadas en el paquete QA: repetición, colisiones y destino del PendingIntent. Ver los bloques recientes de STATUS. La representación del detalle real desde una alerta, la entrega con pantalla bloqueada y las migraciones instrumentadas siguen NOT VERIFIED. La cobertura de avisos antiguos y los recordatorios temporales requieren trabajo. No declarar terminada la vigilancia completa.
 
 El punto de control inicial reúne código, pruebas y documentación revisados. Consultar git log -1 para identificar el commit y git status para detectar cambios posteriores. No hay remoto configurado: este punto de recuperación es local y no protege frente a pérdida del equipo.
 

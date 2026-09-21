@@ -1,5 +1,15 @@
 # Checklist manual
 
+## Suite aislada de notificaciones (opcional)
+Resultado 2026-09-20, teléfono 8912c62d: OK (3 tests). Se excluyen resúmenes automáticos del conteo para comprobar avisos de evento. App normal compilada, 36 tests JVM y lint aprobados; actualización conservando 27 procesos. QA detenida al finalizar.
+Compilar desde raíz con .\android\gradlew.bat -p android -PnotificationQa=true assembleQa assembleQaAndroidTest.
+Instalar app-qa.apk y app-qa-androidTest.apk desde sus carpetas en android/app/build/outputs/apk. La aplicación es co.meritoradar.app.qa (Mérito Radar QA), distinta de la app personal.
+Ejecutar adb shell am instrument -w -e class co.meritoradar.app.NotificationDeliveryTest co.meritoradar.app.qa.test/androidx.test.runner.AndroidJUnitRunner.
+
+La suite comprueba repetición, colisiones de hash y el PendingIntent hacia MainActivity con processId/eventId. No inserta concursos ficticios ni demuestra representación del detalle, entrega crítica bajo bloqueo o toda la outbox. Limpia sus avisos al terminar.
+La propiedad notificationQa selecciona src/notificationTest/java en lugar de la suite legacy androidTest, cuyos errores de migración siguen pendientes; no reportar la suite legacy como aprobada.
+Al terminar, detener la copia QA para evitar revisiones CNSC adicionales: adb shell am force-stop co.meritoradar.app.qa.
+
 ## 2026-09-20 — Diagnóstico de notificaciones y periodo natural
 - [x] Ajustes > Enviar notificación de prueba: aviso silencioso visible en bandeja, texto TEST - Mérito Radar; permiso concedido.
 - [x] Repetir envío: un solo NotificationRecord id=9999.

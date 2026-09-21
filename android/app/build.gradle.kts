@@ -16,6 +16,18 @@ android {
         // Remove API_URL dependency - we'll use direct CNSC access
     }
     buildFeatures { compose = true; buildConfig = true }
+    // Opt-in isolated notification suite; the legacy androidTest suite remains separate.
+    if (providers.gradleProperty("notificationQa").orNull == "true") {
+        buildTypes {
+            create("qa") {
+                initWith(getByName("debug"))
+                applicationIdSuffix = ".qa"
+                matchingFallbacks += listOf("debug")
+            }
+        }
+        testBuildType = "qa"
+        sourceSets.getByName("androidTest").java.setSrcDirs(listOf("src/notificationTest/java"))
+    }
     composeOptions { kotlinCompilerExtensionVersion = "1.5.14" }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
