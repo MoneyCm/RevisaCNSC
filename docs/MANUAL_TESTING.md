@@ -1,5 +1,14 @@
 # Checklist manual
 
+## Migraciones Room instrumentadas — 2026-09-21
+- VERIFIED: assembleDebug, assembleDebugAndroidTest, testDebugUnitTest y lintDebug BUILD SUCCESSFUL; 56 tests JVM; 3/3 tests instrumentados en 8912c62d.
+- Comando: `.\android\gradlew.bat -p android assembleDebugAndroidTest`; luego en dispositivo (NO usar connectedDebugAndroidTest, que desinstala la app):
+  - `adb install -r app-debug.apk` y `adb install -r app-debug-androidTest.apk` (requiere "Instalar vía USB" en Xiaomi)
+  - `adb shell am instrument -w -r -e class co.meritoradar.app.MigrationTest co.meritoradar.app.test/androidx.test.runner.AndroidJUnitRunner`
+- La suite usa la DB aislada "migration-test" y siembra datos propios; verificó conservación en 1→2 (sigue following, crea content_cache), 2→3 (sigue processes/following/content_cache, slug queda '') y 1→3 completa.
+- Comprobar que radar.db real no se modifica (los tests no la abren) y que MIGRATION_2_3 produce slug NOT NULL.
+- Migración desde una base histórica real con datos del usuario previos: NOT VERIFIED (los tests no usan datos CNSC reales, se siembran).
+
 ## Historial de publicaciones — 2026-09-21
 - VERIFIED: 56 tests JVM, build y lint aprobados (19 advertencias); install -r y worker en 8912c62d sin borrar datos.
 - Abrir un seguido de micrositio (ej. DIAN 2676), pulsar Actualizar detalle y comprobar que el detalle muestra varias publicaciones fechadas (hasta 5) con su fecha y la nota "Historial informativo conservado del micrositio; no genera alertas nuevas".

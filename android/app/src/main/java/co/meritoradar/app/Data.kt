@@ -61,7 +61,7 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
     override fun migrate(db: SupportSQLiteDatabase) {
         // Add slug column to processes table
         try {
-            db.execSQL("ALTER TABLE processes ADD COLUMN slug TEXT DEFAULT ''")
+            db.execSQL("ALTER TABLE processes ADD COLUMN slug TEXT NOT NULL DEFAULT ''")
         } catch (e: Exception) {
             // Column might already exist
         }
@@ -83,7 +83,7 @@ interface RadarDao {
     @Upsert suspend fun follow(item: Following)
     @Query("DELETE FROM following WHERE processId = :id") suspend fun unfollow(id: String)
 }
-@Database(entities = [Process::class, Following::class, ContentCache::class], version = 3, exportSchema = false)
+@Database(entities = [Process::class, Following::class, ContentCache::class], version = 3, exportSchema = true)
 abstract class LegacyRadarDatabase : RoomDatabase() {
     abstract fun dao(): RadarDao
 

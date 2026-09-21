@@ -1,5 +1,15 @@
 # Estado y registro de verificaciones
 
+## Último bloque — migraciones Room instrumentadas, 2026-09-21
+- Corregido MigrationTest.kt (no compilaba contra Room 2.6.1: referencia a TEST_DATABASE inexistente y firma antigua de runMigrationsAndValidate(boolean)). Reescribió con MigrationTestHelper(InstrumentationRegistry, LegacyRadarDatabase::class) y la firma vigente runMigrationsAndValidate(name, versionDestino, validateDroppedTables, ...migraciones).
+- Activado exportSchema = true y room.schemaLocation para generar android/app/schemas/co.meritoradar.app.LegacyRadarDatabase/3.json (fuente de verdad). Derivados 1.json (processes sin slug + following) y 2.json (+ content_cache) reconstruyendo createSql desde los fields del 3.json. Copiados a src/androidTest/assets/... para que createDatabase(name, version) los cargue.
+- El primer pase en dispositivo encontró un error real de esquema: MIGRATION_2_3 agregaba slug nullable ("TEXT DEFAULT ''") mientras la entidad Process.slug (String) y el schema exportado la declaran NOT NULL; corregido a "TEXT NOT NULL DEFAULT ''". La validación de MigrationTestHelper compara TableInfo contra el JSON destino.
+- Suite instrumentada: three tests (1→2, 2→3, 1→3 completa) siembran datos propios y verifican conservación (filas de processes/following/content_cache sobreviven; slug queda '') usando la DB aislada "migration-test", sin tocar radar.db.
+- VERIFIED: assembleDebug, assembleDebugAndroidTest, testDebugUnitTest y lintDebug BUILD SUCCESSFUL; 3/3 tests instrumentados OK en 8912c62d; 56 tests JVM de regresión; lint 0 errores/19 advertencias. radar.db real intacta en v3 (27 procesos, identity_hash a2e692d177faf9fcc2640d282ee5fd06), no se borraron datos.
+- El bloqueo de instalación de Xiaomi (INSTALL_FAILED_USER_RESTRICTED) se resolvió activando "Instalar vía USB"; el runner connectedDebugAndroidTest desinstala la app antes de instalar la de pruebas, por lo que la ejecución se hizo con pm install -r + am instrument (evita desinstalar).
+- NOT VERIFIED: validación en CI/automática (solo manual en dispositivo); migración de una base histórica real con datos previos del usuario (los tests siembran sus propios datos, no datos CNSC reales); paginación real >3 páginas y diagnóstico de fallo real por micrositio siguen pendientes de bloques anteriores.
+- Deuda previa conservada: PROJECT_STATUS menciona "sin remoto configurado"; el remoto origin sí está configurado y main está sincronizado con origin/main, corresponde corregir la redacción documental.
+
 ## Último bloque — historial de publicaciones del micrositio, 2026-09-21
 - Implementado `ProcessActivityParser.parseAll`: lee hasta tres páginas del micrositio oficial (paginador Drupal `main .pager__item--next a`, mismo host `cnsc.gov.co`, mismo path, filtro =64) y conserva todas las publicaciones fechadas (título, resumen, fecha Bogotá y URL de fuente) en `ProcessActivity.publications`, ordenadas desc y con el último aviso como campos principales. `parse()` conserva el contrato de una página. Un fallo de lectura de la primera página propaga (fallo visible); un fallo de página posterior conserva lo ya recogido.
 - El historial es informativo y conservador: la UI del detalle muestra hasta 5 publicaciones con su fecha más la nota "no genera alertas nuevas". No se generan eventos de aviso desde publicaciones históricas ni alertas retroactivas; los recordatorios de ventanas siguen dependiendo de las fechas de etapas CONFIRMED/SCHEDULED revisadas en la corrida.
@@ -145,7 +155,7 @@ Los bloques históricos conservan afirmaciones antiguas: para la misma funcional
 - No se verificaron todavía offline, TalkBack, modo oscuro, proceso muerto, notificaciones locales ni navegación desde deep link.
 - Backend tests: 26 tests requieren TEST_DATABASE_URL (PostgreSQL real) para ejecutarse completamente.
 - Android WorkManager: Funcionalidad básica implementada pero sin prueba real en dispositivo/emulador.
-- Room migration tests: creados pero no ejecutados en dispositivo real.
+- Room migration tests: ejecutados y aprobados en dispositivo 2026-09-21 (3/3); ver bloque migraciones Room instrumentadas.
 - WorkManager status observation: implementado pero no probado en UI real.
 - Pruebas de paridad: tests básicos creados, falta comparación con fixtures Python completos.
 
