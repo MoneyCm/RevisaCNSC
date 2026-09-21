@@ -22,9 +22,14 @@ class RadarViewModel(application: Application) : AndroidViewModel(application) {
     val processes = repository.processes.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val following = repository.following.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val workStatus = repository.observeWorkManagerStatus().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "idle")
+    val diagnostics = repository.diagnostics.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+    val monitorInterval = repository.monitorInterval.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 15)
+    val monitoringPaused = repository.monitoringPaused.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
     private val mutableSync = MutableStateFlow(SyncState())
     val sync = mutableSync.asStateFlow()
     init { refresh() }
+    fun setMonitorInterval(minutes: Int) = viewModelScope.launch { repository.setMonitorInterval(minutes) }
+    fun setMonitoringPaused(paused: Boolean) = viewModelScope.launch { repository.setMonitoringPaused(paused) }
     fun refresh() {
         if (mutableSync.value.loading) return
         viewModelScope.launch {

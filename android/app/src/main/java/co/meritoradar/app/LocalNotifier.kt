@@ -22,6 +22,8 @@ class LocalNotifier(private val context: Context) {
 
         private const val NOTIFICATION_ID_BASE = 1000
 
+        data class ChannelStatus(val channelId: String, val label: String, val blocked: Boolean)
+
         fun createNotificationChannels(context: Context) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -68,6 +70,16 @@ class LocalNotifier(private val context: Context) {
         "IMPORTANT" -> CHANNEL_IMPORTANT
         else -> CHANNEL_INFO
     }
+
+    /**
+     * Public status of the three app channels for the diagnosis screen. A channel is
+     * blocked when missing or set to IMPORTANCE_NONE (Android swallows the post).
+     */
+    fun channelStatuses(): List<ChannelStatus> = listOf(
+        ChannelStatus(CHANNEL_CRITICAL, "Alertas urgentes", isChannelBlocked(CHANNEL_CRITICAL)),
+        ChannelStatus(CHANNEL_IMPORTANT, "Actualizaciones importantes", isChannelBlocked(CHANNEL_IMPORTANT)),
+        ChannelStatus(CHANNEL_INFO, "Información general", isChannelBlocked(CHANNEL_INFO))
+    )
 
     /**
      * Check if notification permission is granted

@@ -6,10 +6,16 @@ import androidx.room.*
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.google.gson.Gson
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.first
 import com.google.gson.annotations.SerializedName
 import kotlinx.coroutines.flow.Flow
+import java.time.Instant
 
 // Legacy models for compatibility with existing UI code
 @Entity(tableName = "processes")
@@ -31,6 +37,14 @@ data class Following(@PrimaryKey val processId: String)
 
 data class Health(val status: String, @SerializedName("last_monitor_run") val lastRun: String?,
     @SerializedName("sources_ok") val sourcesOk: Int, @SerializedName("sources_failed") val sourcesFailed: Int, @SerializedName("review_required") val reviewRequired: Int)
+
+data class NoticeStateSnapshot(val state: NoticeState?, val savedAt: Instant?)
+
+data class AndroidEnvironment(
+    val notificationPermission: Boolean?,
+    val channelsBlocked: List<String>,
+    val batteryOptimizationExempt: Boolean?
+)
 
 @Entity(tableName = "content_cache")
 data class ContentCache(@PrimaryKey val cacheKey: String, val payload: String, val savedAt: Long)
@@ -131,6 +145,82 @@ class LocalRadarRepository(private val dao: RadarDao, private val context: andro
     val processes = dao.observe()
     val following = dao.following()
 
+    private val monitorPrefs = context.getSharedPreferences("monitor_schedule", android.content.Context.MODE_PRIVATE)
+    private val _monitorInterval = MutableStateFlow(monitorPrefs.getInt("interval_minutes", 15))
+    val monitorInterval: StateFlow<Int> = _monitorInterval.asStateFlow()
+    private val _monitoringPaused = MutableStateFlow(monitorPrefs.getBoolean("monitoring_paused_v1", false))
+    val monitoringPaused: StateFlow<Boolean> = _monitoringPaused.asStateFlow()
+
+    val noticeState = dao.cached("notice_state").map { cache ->
+        cache?.let { NoticeStateSnapshot(gson.fromJson(it.payload, NoticeState::class.java), Instant.ofEpochMilli(it.savedAt)) }
+            ?: NoticeStateSnapshot(null, null)
+    }
+
+    fun observePeriodicWork(): Flow<PeriodicWorkSnapshot?> = workManager
+        .getWorkInfosForUniqueWorkFlow(CnscMonitoringWorker.WORK_NAME)
+        .map { infos ->
+            infos.firstOrNull()?.let {
+                PeriodicWorkSnapshot(
+                    state = it.state.name,
+                    runAttemptCount = it.runAttemptCount,
+                    nextRunAtMillis = it.nextScheduleTimeMillis.takeIf { t -> t > 0L },
+                    periodic = true
+                )
+            }
+        }
+
+    private fun androidEnvironment(): AndroidEnvironment {
+        val notifier = LocalNotifier(context)
+        val channels = notifier.channelStatuses()
+        val powerManager = context.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
+        return AndroidEnvironment(
+            notificationPermission = runCatching { notifier.hasNotificationPermission() }.getOrNull(),
+            channelsBlocked = channels.filter { it.blocked }.map { it.label },
+            batteryOptimizationExempt = runCatching { powerManager.isIgnoringBatteryOptimizations(context.packageName) }.getOrNull()
+        )
+    }
+
+    private fun androidEnvironmentFlow(): Flow<AndroidEnvironment> = flow { emit(androidEnvironment()) }
+
+    val diagnostics: Flow<DiagnosticsSnapshot> = combine(
+        processes,
+        following,
+        activityChecks,
+        noticeState,
+        observePeriodicWork(),
+        monitorInterval,
+        monitoringPaused,
+        androidEnvironmentFlow()
+    ) { values ->
+        Diagnostics.build(
+            now = Instant.now(),
+            processes = values[0] as List<Process>,
+            followedIds = (values[1] as List<String>).toSet(),
+            checks = values[2] as List<ActivityCheck>,
+            noticeState = (values[3] as NoticeStateSnapshot).state,
+            noticeStateSavedAt = (values[3] as NoticeStateSnapshot).savedAt,
+            periodic = values[4] as PeriodicWorkSnapshot?,
+            periodMinutes = values[5] as Int,
+            paused = values[6] as Boolean,
+            notificationPermission = (values[7] as AndroidEnvironment).notificationPermission,
+            channelsBlocked = (values[7] as AndroidEnvironment).channelsBlocked,
+            batteryOptimizationExempt = (values[7] as AndroidEnvironment).batteryOptimizationExempt
+        )
+    }
+
+    fun setMonitorInterval(minutes: Int) {
+        val interval = Diagnostics.coercePeriod(minutes)
+        CnscMonitoringWorker.updateInterval(context, interval)
+        _monitorInterval.value = interval
+    }
+
+    fun setMonitoringPaused(paused: Boolean) {
+        monitorPrefs.edit().putBoolean("monitoring_paused_v1", paused).apply()
+        _monitoringPaused.value = paused
+        if (paused) CnscMonitoringWorker.cancel(context)
+        else CnscMonitoringWorker.schedule(context, _monitorInterval.value)
+    }
+
     suspend fun refresh(): Health {
         val id = CnscMonitoringWorker.triggerManualSync(context)
         val result = kotlinx.coroutines.withTimeoutOrNull(240_000) {
@@ -213,7 +303,11 @@ class RadarApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        // Schedule periodic monitoring on app start
-        CnscMonitoringWorker.schedule(this, 15)
+        val prefs = getSharedPreferences("monitor_schedule", android.content.Context.MODE_PRIVATE)
+        if (prefs.getBoolean("monitoring_paused_v1", false)) {
+            CnscMonitoringWorker.cancel(this)
+        } else {
+            CnscMonitoringWorker.schedule(this)
+        }
     }
 }

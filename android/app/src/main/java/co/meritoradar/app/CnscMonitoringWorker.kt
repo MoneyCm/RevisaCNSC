@@ -169,16 +169,18 @@ class CnscMonitoringWorker(
         const val TAG = "CnscMonitoring"
 
         /**
-         * Schedule periodic monitoring work
+         * Schedule periodic monitoring work. The stored preference interval_minutes
+         * overrides the default so a preference change survives an app restart.
          */
         fun schedule(context: Context, intervalMinutes: Int = 15) {
+            val prefs = context.getSharedPreferences("monitor_schedule", Context.MODE_PRIVATE)
+            val interval = prefs.getInt("interval_minutes", intervalMinutes).coerceAtLeast(15)
             val constraints = Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED)
                 .build()
 
-            val interval = intervalMinutes.toLong().coerceAtLeast(15)
             val workRequest = PeriodicWorkRequestBuilder<CnscMonitoringWorker>(
-                interval,
+                interval.toLong(),
                 TimeUnit.MINUTES
             )
                 .setConstraints(constraints)
@@ -190,14 +192,44 @@ class CnscMonitoringWorker(
                 .addTag(TAG)
                 .build()
 
-            val preferences = context.getSharedPreferences("monitor_schedule", Context.MODE_PRIVATE)
-            if (!preferences.getBoolean("interval_fixed_v1", false)) {
+            if (!prefs.getBoolean("interval_fixed_v1", false)) {
                 WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
-                preferences.edit().putBoolean("interval_fixed_v1", true).apply()
+                prefs.edit().putBoolean("interval_fixed_v1", true).apply()
             }
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(
                 WORK_NAME,
                 ExistingPeriodicWorkPolicy.KEEP,
+                workRequest
+            )
+        }
+
+        /**
+         * Persist a new review interval and replace the periodic unique work so the
+         * change is effective immediately and survives restarts. WorkManager enforces
+         * a 15-minute minimum period; the value is clamped before persisting.
+         */
+        fun updateInterval(context: Context, intervalMinutes: Int) {
+            val interval = intervalMinutes.coerceAtLeast(15)
+            context.getSharedPreferences("monitor_schedule", Context.MODE_PRIVATE)
+                .edit().putInt("interval_minutes", interval).apply()
+            val constraints = Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .build()
+            val workRequest = PeriodicWorkRequestBuilder<CnscMonitoringWorker>(
+                interval.toLong(),
+                TimeUnit.MINUTES
+            )
+                .setConstraints(constraints)
+                .setBackoffCriteria(
+                    BackoffPolicy.LINEAR,
+                    30,
+                    TimeUnit.SECONDS
+                )
+                .addTag(TAG)
+                .build()
+            WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+                WORK_NAME,
+                ExistingPeriodicWorkPolicy.UPDATE,
                 workRequest
             )
         }

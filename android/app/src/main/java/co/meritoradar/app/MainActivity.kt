@@ -85,6 +85,9 @@ fun RadarScreen(linkedId: String?, vm: RadarViewModel = viewModel()) {
     val sync by vm.sync.collectAsStateWithLifecycle()
     val alerts by vm.alerts.collectAsStateWithLifecycle()
     val detailContent by vm.detailContent.collectAsStateWithLifecycle()
+    val diagnostics by vm.diagnostics.collectAsStateWithLifecycle()
+    val monitorInterval by vm.monitorInterval.collectAsStateWithLifecycle()
+    val monitoringPaused by vm.monitoringPaused.collectAsStateWithLifecycle()
     var selected by rememberSaveable { mutableStateOf<String?>(null) }
     var tab by rememberSaveable { mutableStateOf("Inicio") }
     var query by rememberSaveable { mutableStateOf("") }
@@ -178,6 +181,48 @@ fun RadarScreen(linkedId: String?, vm: RadarViewModel = viewModel()) {
                     Text("Sistema de vigilancia", style = MaterialTheme.typography.titleLarge)
                     Text(sync.health?.let { "Fuentes disponibles: ${it.sourcesOk} · con problemas: ${it.sourcesFailed} · publicaciones por revisar: ${it.reviewRequired}" } ?: "Estado del monitor no disponible")
                     Button(onClick = vm::refresh, enabled = !sync.loading) { Text("Consultar estado") }
+                }
+                item {
+                    Text("Diagnóstico", style = MaterialTheme.typography.titleLarge)
+                    diagnostics?.let { diag ->
+                        val diagColor = if (diag.status == WatchStatus.OPERATIONAL) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.error
+                        Text(diag.status.label, style = MaterialTheme.typography.titleSmall, color = diagColor)
+                        Text(diag.statusReason, style = MaterialTheme.typography.bodyMedium, color = diagColor)
+                    }
+                    val lines = diagnostics?.lines().orEmpty()
+                    if (lines.isEmpty()) {
+                        Text("Diagnóstico aún no disponible. Si acabas de abrir la app, se muestra en un momento.")
+                    } else lines.forEach { line ->
+                        Text(line.label, style = MaterialTheme.typography.titleSmall)
+                        Text(line.value, style = MaterialTheme.typography.bodyMedium,
+                            color = when (line.kind) {
+                                LineKind.OK -> MaterialTheme.colorScheme.primary
+                                LineKind.WARN, LineKind.ERROR -> MaterialTheme.colorScheme.error
+                                else -> androidx.compose.ui.graphics.Color.Unspecified
+                            })
+                    }
+                }
+                item {
+                    Text("Preferencias de vigilancia", style = MaterialTheme.typography.titleLarge)
+                    Text("Frecuencia de revisión solicitada")
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Diagnostics.PERIOD_OPTIONS.forEach { option ->
+                            FilterChip(selected = monitorInterval == option, onClick = { vm.setMonitorInterval(option) },
+                                label = { Text("$option min") })
+                        }
+                    }
+                    Text("WorkManager solicita la revisión cada $monitorInterval minutos; Android puede retrasarla o agruparla. No es una cita exacta a los 15 minutos.")
+                    if (monitoringPaused) {
+                        Text("La vigilancia está en pausa: no se programan revisiones ni se entregan avisos.", color = MaterialTheme.colorScheme.error)
+                        Button(onClick = { vm.setMonitoringPaused(false) }) { Text("Reanudar vigilancia") }
+                    } else {
+                        OutlinedButton(onClick = { vm.setMonitoringPaused(true) }) { Text("Pausar vigilancia") }
+                    }
+                    Text("Pausar detiene las revisiones programadas. La información guardada se conserva. Pausar y reanudar no cambia los concursos en seguimiento.")
+                    TextButton(onClick = { tab = "Concursos" }) { Text("Elegir concursos en seguimiento") }
+                }
+                item {
                     Text("Prueba de notificaciones", style = MaterialTheme.typography.titleMedium)
                     Text("Envía un aviso de prueba silencioso a la bandeja del teléfono. No es una novedad CNSC ni comprueba la vigilancia automática.")
                     OutlinedButton(onClick = {
@@ -192,7 +237,9 @@ fun RadarScreen(linkedId: String?, vm: RadarViewModel = viewModel()) {
                     }) { Text("Configurar notificaciones del teléfono") }
                     Text("Versión ${BuildConfig.VERSION_NAME}")
                     Text("Los favoritos y la información reciente se conservan en este teléfono. No solicitamos credenciales de SIMO.")
-                    Text("Revisión periódica solicitada cada 15 minutos; Android puede retrasarla. Cobertura inicial: página reciente de avisos CNSC. Fechas extraídas solo de intervalos explícitos; recordatorios de vencimiento y preferencias pendientes.")
+                }
+                item {
+                    Text("Revisión periódica solicitada con frecuencia configurable; Android puede retrasarla. Cobertura: catálogo CNSC, avisos recientes y micrositios de concursos seguidos. Recordatorios de apertura/cierre y preferencias de frecuencia disponibles.")
                     OfficialButton("https://www.cnsc.gov.co/avisos-informativos", "Fuentes de información")
                 }
             } else if (tab == "Alertas") {

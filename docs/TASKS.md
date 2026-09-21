@@ -22,11 +22,6 @@ Convención de estado:
 
 ## PENDIENTE (prioridad más alta)
 
-1. **[NEXT_TASKS 7] Diagnóstico y preferencias — PENDIENTE**
-   Revisar qué existe ya (repository expone estado/health; ajustes tienen notificación de prueba). Completar con estado real: última revisión, errores, alcance de fuentes, frecuencia y preferencias. Requiere definir qué se muestra y desde dónde se lee (Room + WorkManager). Depende de nada pendiente; puede arrancar directamente.
-   Preferible antes: repoblar seguidos en el dispositivo (ver 8), para que el diagnóstico muestre estados reales.
-   NOT VERIFIED pendiente acumulado: diagnóstico de fallo real por micrositio en el teléfono.
-
 2. **[Entrega física con pantalla bloqueada] — PENDIENTE**
    Verificar una novedad crítica real del recorrido worker → outbox → bandeja (deep link) con pantalla bloqueada y app cerrada. Exigir antes de declarar la vigilancia completa. No inyectar avisos CNSC ficticios.
 
@@ -53,7 +48,10 @@ Convención de estado:
 
 ## DONE
 
-9. **[NEXT_TASKS 6] Migraciones Room instrumentadas — DONE (2026-09-21)**
+9. **[NEXT_TASKS 7] Diagnóstico y preferencias — DONE (2026-09-21, orquestador temporal)**
+   Añadida pestaña "Diagnóstico" en Ajustes con estado derivado de fuentes reales (Room, WorkManager y configuración Android): estado general (pausada / at-risk / sin primera revisión / degradada / operativa vía `Diagnostics.status` con precedencia), última revisión de avisos y micrositios, próxima ejecución programada, programación actual, concursos seguidos (cantidad y nombres), fuentes vigiladas (catálogo/avisos/micrositios), errores recientes por micrositio (24 h, desde `activity_check`), frecuencia configurada, estado de notificaciones (permiso + 3 canales) y optimización de batería. Lógica pura en `Diagnostics.kt`; repository expone `diagnostics`, `noticeState`, `observePeriodicWork`, `monitorInterval`, `monitoringPaused`. Preferencias cumplibles sin backend: frecuencia 15/30/60/120 min (`updateInterval` reprograma con UPDATE y persiste `interval_minutes`; `schedule`/`RadarApp` la reutilizan tras reinicio) y pausar/reanudar (`monitoring_paused_v1`; pausa cancela el trabajo único). No modifica `following` desde Ajustes (solo enlace a Concursos) y no promete ejecución exacta a los 15 min. VERIFIED: assembleDebug + testDebugUnitTest + lintDebug + assembleDebugAndroidTest BUILD SUCCESSFUL; 72 tests JVM 0 fallos (11 nuevos DiagnosticsTest); lint 0 errores/19 advertencias. NOT VERIFIED (dispositivo intacto, sin instalar): pantalla con datos reales del teléfono, efecto real del cambio de intervalo y de pausa/reanudar sobre los jobs de WorkManager.
+
+9a. **[NEXT_TASKS 6] Migraciones Room instrumentadas — DONE (2026-09-21)**
    Corregido MigrationTest.kt (no compilaba contra Room 2.6.1), activado exportSchema con schemas JSON 1/2/3, tres rutas de migración con datos sembrados, bug real corregido (MIGRATION_2_3: slug ahora TEXT NOT NULL DEFAULT ''). VERIFIED: build + assembleDebugAndroidTest + lint + 3/3 tests instrumentados en 8912c62d. Commits a4b8553 y ee96b33 (sin push hasta handoff).
    NOT VERIFIED: migración de base histórica real con datos previos del usuario.
 
@@ -78,6 +76,6 @@ Convención de estado:
 
 ## Dependencias
 
-- 8 (repoblar dispositivo) habilita verificación física de 1, 2, 4, 5.
-- 1 (diagnóstico/preferencias) muestra el estado real que 8 debe recuperar.
+- 8 (repoblar dispositivo) habilita verificación física de 2, 4, 5 y permite observar el diagnóstico real del teléfono.
+- 1 (diagnóstico/preferencias) DONE: muestra el estado real que 8 debe recuperar.
 - 2 y 5 dependen de una publicación oficial real con ventana confirmada de un seguido.
