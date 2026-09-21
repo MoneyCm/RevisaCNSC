@@ -12,7 +12,7 @@ Git al iniciar esta fase: main dos commits delante del remoto; TASKS y HANDOFF s
 
 # HANDOFF — Relevo de OpenCode (orquestador temporal) a Codex
 
-- **Fecha**: 2026-09-21 (última actualización al cierre de la verificación física de 72471af por el usuario).
+- **Fecha**: 2026-09-21 (última actualización al cierre de la verificación física del transporte de notificación de prueba por el usuario).
 - **Estado actual del proyecto**: Android local-first de vigilancia CNSC (Mérito Radar) funcional y verificado hasta el cierre de esta sesión. Consulta CNSC directamente (OkHttp + TLS corregido), persiste en Room (v3), detecta avisos locales, proyecta fechas conservadoramente y genera notificaciones locales. Backend FastAPI/PostgreSQL es tooling de referencia, no requisito de ejecución. Ahora incluye diagnóstico en la app y preferencias de frecuencia/pausa cumplibles por la arquitectura, con los hallazgos de la auditoría QA de Devin corregidos.
 - **Último commit local**: ver `git log -1`; main sincronizado con `origin/main` (push completado en este cierre).
 - **Contexto**: Codex estuvo ausente; OpenCode actuó como orquestador temporal con protocolo de relevo (leer AGENTS/TASKS/HANDOFF/PROJECT_STATUS/DECISIONS, verificar git antes de tocar, bloques verificables, commit+push+sync tras cada bloque). origin/main es la fuente de verdad y quedó sincronizado.
@@ -25,12 +25,18 @@ Git al iniciar esta fase: main dos commits delante del remoto; TASKS y HANDOFF s
 4. **Zona horaria**: auditado y documentado, NO es bug. `checkedAt` se genera siempre como `Instant.now().toString()` (ISO-8601 UTC `Z`) y se renderiza en Bogotá con `OffsetDateTime.parse`; Diagnostics parsea con `Instant.parse`. No se modificó lógica de zona horaria.
 5. **nextRunAt a 7 días**: mejora opcional fuera del alcance de este bloque; no implementada.
 
+## Verificación física — transporte de notificación de prueba (usuario, 2026-09-21)
+
+- El usuario confirmó en producción que **TEST - Mérito Radar** apareció físicamente en la **pantalla bloqueada** y que al tocarla **abrió correctamente Mérito Radar**; los 3 concursos seguidos permanecieron intactos y no se generó ninguna alerta CNSC ficticia.
+- **VERIFIED**: notificación de prueba → pantalla bloqueada → apertura de Mérito Radar.
+- **Sigue NOT VERIFIED**: generación real de la notificación mientras el teléfono ya está bloqueado/app cerrada (la prueba se envió desde la UI abierta); recorrido worker → cambio CNSC real → outbox → notificación; deep link real hacia concurso/evento concreto; Doze/restricciones OEM. La entrega crítica real (TASKS 2) permanece PENDIENTE; esta prueba valida el transporte manual, no la vigilancia automática.
+
 ## Verificación del bloque actual (correcciones QA)
 
 - `assembleDebug testDebugUnitTest lintDebug assembleDebugAndroidTest` → **BUILD SUCCESSFUL**.
 - Tests JVM: **77 tests, 0 fallos, 0 errores** (5 regresiones nuevas en `DiagnosticsTest`; suite completa).
 - Lint: **0 errores, 19 advertencias** (todas preexistentes, ninguna nueva).
-- **No se instaló ni instrumentó en 8912c62d** (restricción explícita del usuario). NOT VERIFIED físico: los triggers de ciclo de vida refrescando permiso/canales/batería frente a cambios reales del sistema, y el efecto real de KEEP/UPDATE sobre los jobs de WorkManager (reanudar tras cancelación y cambio de intervalo).
+- En el momento del cierre de este bloque no se había instalado ni instrumentado en 8912c62d (restricción explícita del usuario); los triggers de refresco y el efecto de KEEP/UPDATE quedaron NOT VERIFIED y fueron **verificados físicamente después por el usuario** (ver "Verificación del bloque previo (diagnóstico y preferencias)" y STATUS).
 - Producción/QA intactas; no se tocó radar.db ni following; no se ejecutó connectedDebugAndroidTest.
 
 ## Resumen del bloque actual — Diagnóstico y preferencias (NEXT_TASKS 7)
@@ -63,7 +69,7 @@ Git al iniciar esta fase: main dos commits delante del remoto; TASKS y HANDOFF s
 
 ## Problemas todavía pendientes (NOT VERIFIED)
 
-- Entrega física de novedad crítica real con pantalla bloqueada/app cerrada (worker → outbox → bandeja → deep link).
+- Entrega física de novedad crítica real con pantalla bloqueada/app cerrada (worker → outbox → bandeja → deep link). El transporte manual de la notificación de prueba ya está verificado (pantalla bloqueada + apertura), pero la generación real desde el worker con la app cerrada y el deep link a concurso/evento NO.
 - Paginación real de un micrositio con más de 3 páginas (hoy DIAN 2676 tiene una página).
 - Migración de una base histórica real con datos previos del usuario.
 - Comportamiento prolongado bajo Doze/restricciones OEM.
@@ -93,12 +99,12 @@ Git al iniciar esta fase: main dos commits delante del remoto; TASKS y HANDOFF s
 
 ## Siguiente tarea recomendada
 
-La verificación física del diagnóstico y las preferencias quedó completada por el usuario en producción (pantalla Ajustes → Diagnóstico, frecuencia 15→30→60→15, pausa/reanudar, refresco al volver de configuración Android, worker y un único trabajo periódico activo). Continuar con los pendientes que esperan una novedad oficial real: ítem 2 (entrega física con pantalla bloqueada/app cerrada) y 5 (Doze prolongado). TASKS.md ordena el trabajo: 8 (estado del dispositivo) está actualizado y el diagnóstico permite observar el funcionamiento sin repoblar a ciegas.
+La verificación física del diagnóstico y las preferencias quedó completada por el usuario en producción (pantalla Ajustes → Diagnóstico, frecuencia 15→30→60→15, pausa/reanudar, refresco al volver de configuración Android, worker y un único trabajo periódico activo), y el transporte de la notificación de prueba también (TEST en pantalla bloqueada → apertura de Mérito Radar). Continuar con los pendientes que esperan una novedad oficial real: ítem 2 (entrega crítica real con pantalla bloqueada/app cerrada desde el worker) y 5 (Doze prolongado). TASKS.md ordena el trabajo: 8 (estado del dispositivo) está actualizado y el diagnóstico permite observar el funcionamiento sin repoblar a ciegas.
 
 ## Tareas que requieren especialmente revisión de Codex
 
 1. Confirmar que `main == origin/main` tras este relevo y que el commit del bloque quedó pusheado.
-2. La verificación física del diagnóstico/preferencias ya fue realizada por el usuario en producción (2026-09-21) y quedó registrada en STATUS/TASKS; si se desea, reabrir la UI para observaciones puntuales sin cambiar following.
+2. La verificación física del diagnóstico/preferencias y la del transporte de la notificación de prueba (TEST en pantalla bloqueada → apertura) ya fueron realizadas por el usuario en producción (2026-09-21) y quedaron registradas en STATUS/TASKS; si se desea, reabrir la UI para observaciones puntuales sin cambiar following.
 3. Decidir si versionar los JSON de esquema en una única carpeta (hoy duplicados en `schemas/` y `src/androidTest/assets/`).
 4. Si se instaló la nueva versión, evaluar el ítem fallo-de-esquema de instalaciones previas (columna slug nullable en versiones v3 antiguas).
 5. Revisar que `RealCatalogTest` no se ejecute en CI sin control (abre red real y muta following).

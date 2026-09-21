@@ -24,6 +24,7 @@ Convención de estado:
 
 2. **[Entrega física con pantalla bloqueada] — PENDIENTE**
    Verificar una novedad crítica real del recorrido worker → outbox → bandeja (deep link) con pantalla bloqueada y app cerrada. Exigir antes de declarar la vigilancia completa. No inyectar avisos CNSC ficticios.
+   **NOTA (2026-09-21)** — el usuario verificó físicamente en producción el **transporte manual de la notificación de prueba**: `TEST - Mérito Radar` apareció en la pantalla bloqueada y al tocarla abrió Mérito Radar; seguidos intactos y sin avisos CNSC ficticios. Esto valida el transporte hasta la bandeja y su apertura, pero **NO** cubre: generación de notificación con la app cerrada desde un worker, novedad CNSC real → outbox → notificación, ni deep link a un concurso/evento concreto. La generación/válvula de outbox para eventos reales sigue cubierta solo por unitarias/instrumentadas previas.
 
 3. **[Paginación real >3 páginas del historial/micrositio] — PENDIENTE (físico)**
    La paginación Drupal acotada a 3 páginas está implementada y probada con unitarias. Falta un micrositio real con más de tres páginas de publicación para observar físicamente. Hoy DIAN 2676 tiene una sola página.

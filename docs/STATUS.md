@@ -21,6 +21,11 @@ Git al iniciar esta fase: main dos commits delante del remoto; TASKS y HANDOFF s
 - Conclusión: la doc previa (TASKS 8) que describía following/actividad "vacíos" quedó obsoleta; se actualizó TASKS.md 8. Estado listo para NEXT_TASKS 7 sin acción física previa de repoblamiento.
 - NOT VERIFIED: que los seguidos actuales sean exactamente los deseados (PGN/ESE2 fuera), y verificación física de alertas (fuera de alcance de este bloque).
 
+## Bloque 2026-09-21 — Verificación física del transporte de notificación de prueba por el usuario
+- El usuario confirmó en producción que la notificación de prueba **TEST - Mérito Radar** apareció físicamente en la **pantalla bloqueada** del teléfono y que al tocarla **abrió correctamente Mérito Radar**. Los 3 concursos seguidos permanecieron intactos y **no se generó ninguna alerta CNSC ficticia**. Fuente: testimonio del usuario (sin mediciones por ADB en esta sesión, sin modificaciones de código).
+- Registrado como **VERIFIED físicamente**: notificación de prueba → pantalla bloqueada → apertura de Mérito Radar.
+- **Sigue NOT VERIFIED** (no cubierto por esta prueba): generación real de la notificación mientras el teléfono ya está bloqueado/app cerrada (la prueba se envió desde la UI abierta); recorrido worker → cambio CNSC real → outbox → notificación; deep link real hacia concurso/evento (la apertura fue de la app, no navegación a un evento concreto); comportamiento prolongado bajo Doze/restricciones OEM. También siguen pendientes: paginación real >3 páginas, migración de base histórica real con datos previos y recordatorio/cancelación por aplazamiento real en producción.
+
 ## Bloque 2026-09-21 — Verificación física de 72471af (Diagnóstico y preferencias) por el usuario
 - El usuario realizó manualmente en Mérito Radar producción las pruebas de UI del Diagnóstico y confirmó que el comportamiento fue coherente (fuente: testimonio del usuario; sin mediciones por ADB en esta sesión, sin instalación nueva por terminal). Se registra como verificado físicamente según corresponda:
   - **Pantalla Ajustes → Diagnóstico con datos reales del teléfono**: estado general, últimas revisiones, programación, seguidos, fuentes, frecuencia, notificaciones y batería coherentes con Room/WorkManager.
