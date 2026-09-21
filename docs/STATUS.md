@@ -12,6 +12,15 @@ Git al iniciar esta fase: main dos commits delante del remoto; TASKS y HANDOFF s
 
 # Estado y registro de verificaciones
 
+## Verificación no destructiva de estado operativo — 2026-09-21 (orquestador temporal)
+- Comprobado en 8912c62d sin reinstalar, sin borrar datos, sin cambiar following y sin connectedDebugAndroidTest (extracción binaria db+wal+shm vía run-as y lectura solo+PRAGMA).
+- radar.db producción: integrity ok, user_version 3, identity_hash a2e692d177faf9fcc2640d282ee5fd06, 27 procesos.
+- Seguidos activos: 3 (DIAN 2676 `dian-2676`, Aerocivil Primera Fase `aerocivil-primera-fase`, Corporaciones Autónomas Regionales CAR `corporaciones-autonomas-regionales-car`) con activity_check y activity: recientes en 21:00Z-21:01Z (38/15/5 publicaciones) y notice_state inicializado (9 avisos, 9 eventos, pending 0, firedReminders 0). PGN 2407 y ESE2 ya no están seguidos (decisión del usuario en la app; no se modificó following por ADB).
+- WorkManager producción: jobs SystemJobService #u0a424/12-16 ejecutados con jobFinished en los últimos ~4 min y job periódico reprogramado a ~15 min (Minimum latency +14m59s, backoff 30 s); sin errores visibles.
+- Bases independientes: producción (u0a424) y QA (u0a421) mantienen carpetas propias y archivos separados; mismo esquema (identity_hash idéntico) pero contenido distinto (solo producción tiene following). QA: user_version 3, integrity ok, 27 procesos, following 0.
+- Conclusión: la doc previa (TASKS 8) que describía following/actividad "vacíos" quedó obsoleta; se actualizó TASKS.md 8. Estado listo para NEXT_TASKS 7 sin acción física previa de repoblamiento.
+- NOT VERIFIED: que los seguidos actuales sean exactamente los deseados (PGN/ESE2 fuera), y verificación física de alertas (fuera de alcance de este bloque).
+
 ## Último bloque — robustez del historial del micrositio, 2026-09-21
 - Consulta manual (repository.detail) descarga la primera página una sola vez: nuevo `ProcessMicrositeReader` comparte la primera respuesta entre identidad y actividad, eliminando la doble descarga anterior (`fetch` de identidad + `fetch` de `parseAll`).
 - `parseAll` ahora además recibe `firstPageHtml` (página ya descargada para reutilizar) y `pause` (por defecto `delay(2000)`); la pausa de 2 s separa las solicitudes sucesivas a CNSC. Este recorrido es el único lugar que solicita páginas posteriores, por lo que la pausa aplica también a la consulta manual.

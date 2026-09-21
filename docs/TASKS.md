@@ -47,8 +47,8 @@ Convención de estado:
 7. **[NEXT_TASKS 5] Recordatorios de apertura/cierre — PARCIAL (verificación física pendiente)**
    Implementados por transcurso del tiempo (NoticeReminder): ventanas CONFIRMED/SCHEDULED de seguidos, apertura ≤2 días antes del inicio, cierre ≤2 días antes del fin, claves estables que cancelan ante aplazamiento. Verificado en JVM y dispositivo (firedReminders persistido). NOT VERIFIED: entrega física de un recordatorio con ventana real cercana y cancelación por aplazamiento real.
 
-8. **[Repoblar seguidos/actividad en el dispositivo] — PARCIAL**
-   Al iniciar el bloque de migraciones (2026-09-21), la app principal `co.meritoradar.app` NO estaba instalada en 8912c62d (solo la variante QA). La reinstalación recreó radar.db: 27 procesos reobtenidos por el catálogo, pero following, caché de actividad (activity:*) y notice_state quedaron vacíos. Para continuar la vigilancia real hay que volver a seguir DIAN 2676, Aerocivil, PGN 2407 y ESE2.
+8. **[Repoblar seguidos/actividad en el dispositivo] — PARCIAL (verificación 2026-09-21, sin seguimiento activo propio)**
+   Al iniciar el bloque de migraciones (2026-09-21), la app principal `co.meritoradar.app` NO estaba instalada en 8912c62d (solo la variante QA). La reinstalación recreó radar.db y following/caché de actividad quedaron vacíos. **Verificación no destructiva 2026-09-21 (orquestador):** el dispositivo ya fue repoblado parcialmente por el usuario: 3 seguidos activos (DIAN 2676 `dian-2676`, Aerocivil Primera Fase `aerocivil-primera-fase`, Corporaciones Autónomas Regionales CAR `corporaciones-autonomas-regionales-car`), con activity_check/activity recientes (21:00Z) y notice_state inicializado (9 avisos/9 eventos, pending 0). Siguen fuera de seguimiento PGN 2407 y ESE2 (antes seguidos); si se desean, requiere acción del usuario en la app (no se modifica following por ADB).
    No es deuda de código; es estado del dispositivo.
 
 ## DONE

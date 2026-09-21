@@ -45,7 +45,7 @@ Cambios de archivos: `ProcessActivity.kt`, `Data.kt`, nuevo `ProcessMicrositeRea
 ## Problemas encontrados en este bloque
 
 - **`INSTALL_FAILED_USER_RESTRICTED` (Xiaomi)** ya conocido: se resolvió en el turno previo activando "Instalar vía USB"; para verificación instrumentada se usa `pm install -r` + `am instrument`, no el runner de Gradle.
-- **Estado limpiado del dispositivo**: following/caché activity/notice_state vacíos desde la reinstalación del turno de migraciones (no pérdida en este bloque; ver TASKS.md 8 para repoblar).
+- **Estado limpiado del dispositivo** (following/caché activity/notice_state vacíos desde la reinstalación del turno de migraciones; no pérdida en este bloque; ver TASKS.md 8 para repoblar). Verificación 2026-09-21: el usuario ya repobló parcialmente (3 seguidos: DIAN 2676, Aerocivil Primera Fase, CAR) y el worker quedó activo; PGN 2407 y ESE2 fuera de seguimiento.
 
 ## Problemas todavía pendientes (NOT VERIFIED)
 
