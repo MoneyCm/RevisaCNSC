@@ -182,9 +182,8 @@ class LocalRadarRepository(private val dao: RadarDao, private val context: andro
                 val http = CnscHttpClient()
                 try {
                     val url = process.officialUrl + "?field_tipo_de_contenido_convocat_target_id=64"
-                    val response = http.fetch(url)
-                    val parsed = ProcessIdentityParser.parse(process, response.html, url, java.time.Instant.now().toString())
-                    val activityParsed = ProcessActivityParser.parseAll(process, url, { http.fetch(it).html }, java.time.Instant.now())
+                    val (parsed, activityParsed) = ProcessMicrositeReader.read(process, url,
+                        { http.fetch(it).html }, java.time.Instant.now())
                     dao.cache(ContentCache("activity:" + id, gson.toJson(activityParsed), System.currentTimeMillis()))
                     dao.cache(ContentCache("activity_check:" + id,
                         gson.toJson(ActivityCheck(id, process.name, java.time.Instant.now().toString(), null)),

@@ -20,34 +20,32 @@ data class ProcessActivity(val title: String, val summary: String, val published
 object ProcessActivityParser {
     const val MAX_PAGES = 3
 
-    /** Bounded, HTTP-driven history: sequential official microsite pages with 2 s spacing
-     * provided by the caller's fetch. A failure beyond the first page keeps collected data. */
+    /** Commit only a successful bounded traversal. Failures and cancellation propagate. */
     suspend fun parseAll(process: Process, sourceUrl: String, fetch: suspend (String) -> String,
-        now: Instant, maxPages: Int = MAX_PAGES): ProcessActivity {
+        now: Instant, maxPages: Int = MAX_PAGES, firstPageHtml: String? = null,
+        pause: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) }): ProcessActivity {
         var url = sourceUrl
-        val collected = linkedSetOf<Pair<String, String>>()
+        val collected = linkedMapOf<Pair<String, String>, ActivityPublication>()
         for (page in 1..maxPages) {
-            val html = try { fetch(url) } catch (e: Exception) {
-                if (page == 1) throw e else break
-            }
+            if (page > 1) pause(2000)
+            val html = if (page == 1 && firstPageHtml != null) firstPageHtml else fetch(url)
             collect(process, html, url, now, collected)
             val next = nextPage(process, html, url) ?: break
             url = next
         }
         if (collected.isEmpty()) throw ParseError("Sin avisos fechados reconocibles en micrositio")
-        return summarize(process, sourceUrl, now, collected.toList())
+        return summarize(now, collected.values.toList())
     }
-
     /** Pure parse of a single official microsite page; keeps the latest as summary fields. */
     fun parse(process: Process, html: String, sourceUrl: String, now: Instant): ProcessActivity {
-        val collected = linkedSetOf<Pair<String, String>>()
+        val collected = linkedMapOf<Pair<String, String>, ActivityPublication>()
         collect(process, html, sourceUrl, now, collected)
         if (collected.isEmpty()) throw ParseError("Sin avisos fechados reconocibles en micrositio")
-        return summarize(process, sourceUrl, now, collected.toList())
+        return summarize(now, collected.values.toList())
     }
 
     private fun collect(process: Process, html: String, sourceUrl: String, now: Instant,
-        collected: MutableSet<Pair<String, String>>) {
+        collected: MutableMap<Pair<String, String>, ActivityPublication>) {
         val source = sourceUrl.toHttpUrl()
         require(officialLink(sourceUrl) && source.queryParameter("field_tipo_de_contenido_convocat_target_id") == "64")
         require(source.toString().substringBefore('?') == process.officialUrl)
@@ -65,21 +63,16 @@ object ProcessActivityParser {
                     .atZone(ZoneId.of("America/Bogota")).toInstant()
             }.getOrNull() ?: return@forEach
             if (instant > now) return@forEach
-            collected.add(title to instant.toString())
+            collected.putIfAbsent(title to instant.toString(), ActivityPublication(title, describe(title), instant.toString(), sourceUrl))
         }
     }
 
-    private fun summarize(process: Process, sourceUrl: String, now: Instant,
-        items: List<Pair<String, String>>): ProcessActivity {
-        val ordered = items.sortedWith(compareByDescending<Pair<String, String>> { Instant.parse(it.second) })
+    private fun summarize(now: Instant, items: List<ActivityPublication>): ProcessActivity {
+        val ordered = items.sortedByDescending { Instant.parse(it.publishedAt) }
         val latest = ordered.first()
-        return ProcessActivity(latest.first, describe(latest.first), latest.second,
-            sourceUrl, now.toString(), ordered.size,
-            ordered.map { (title, publishedAt) ->
-                ActivityPublication(title, describe(title), publishedAt, sourceUrl)
-            })
+        return ProcessActivity(latest.title, latest.summary, latest.publishedAt,
+            latest.sourceUrl, now.toString(), ordered.size, ordered)
     }
-
     /** Drupal pager on the same microsite: official host, same path, avisos category filter. */
     fun nextPage(process: Process, html: String, sourceUrl: String): String? {
         val link = Jsoup.parse(html).selectFirst("main .pager__item--next a[href]") ?: return null

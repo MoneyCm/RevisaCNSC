@@ -57,6 +57,10 @@ Convención de estado:
    Corregido MigrationTest.kt (no compilaba contra Room 2.6.1), activado exportSchema con schemas JSON 1/2/3, tres rutas de migración con datos sembrados, bug real corregido (MIGRATION_2_3: slug ahora TEXT NOT NULL DEFAULT ''). VERIFIED: build + assembleDebugAndroidTest + lint + 3/3 tests instrumentados en 8912c62d. Commits a4b8553 y ee96b33 (sin push hasta handoff).
    NOT VERIFIED: migración de base histórica real con datos previos del usuario.
 
+9b. **[Robustez del historial del micrositio — DONE (2026-09-21)]**
+    Cinco defectos corregidos con regresiones: (a) fallo en página posterior se propaga y conserva la caché previa (ActivityRefresh reporta error sin guardar); (b) CancellationException se propaga sin guardar ni reportar; (c) cada publicación conserva la URL real de su página; (d) la consulta manual descarga una sola vez la primera página (nuevo ProcessMicrositeReader comparte identidad+actividad); (e) pausa de 2 s entre solicitudes sucesivas en el recorrido. VERIFIED: assembleDebug + testDebugUnitTest + lintDebug + assembleDebugAndroidTest BUILD SUCCESSFUL; 61 tests JVM (15 ProcessActivityTest), lint 0 errores/19 advertencias, MigrationTest 3/3 vía am instrument sin desinstalar, radar.db real intacta. Commit y push locales (ver git log -1).
+    NOT VERIFIED: fallo tardío en dispositivo real, recorrido real >3 páginas, cronometría física de la pausa.
+
 10. **[Historial de publicaciones con paginación acotada] — PARCIAL (auditoría 2026-09-21)**
     ProcessActivityParser.parseAll conserva hasta 3 páginas del mismo micrositio oficial y varias publicaciones fechadas (título, resumen, fecha Bogotá, URL) en publications, ordenadas desc, sin alertas retroactivas. VERIFIED en JVM (56 tests) y dispositivo (DIAN 2676 con 15 publicaciones). Commit cdce4cf (pusheado).
 

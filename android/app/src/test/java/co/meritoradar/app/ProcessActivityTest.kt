@@ -83,34 +83,37 @@ class ProcessActivityTest {
     @Test fun parseAllFollowsBoundedPagesAndMergesHistory() = runBlocking {
         val page1 = "<main><h1>DIAN 2676</h1><div class='view-content'>" +
             card("Nuevo aviso reciente", "20/09/2026 - 12:00") +
-            "</div><nav class='pager'><ul><li class='pager__item--next'><a href='" + url + "&page=1'>Siguiente</a></li></ul></nav></main>"
+"</div><nav class='pager'><ul><li class='pager__item--next'><a href='" + url + "&page=1'>Siguiente</a></li></ul></nav></main>"
         val page2 = page(card("Resultados de VRM", "20/09/2025 - 12:00"))
         val requests = mutableListOf<String>()
         val result = ProcessActivityParser.parseAll(process, url,
-            { u -> requests.add(u); if (u.endsWith("&page=1")) page2 else page1 }, now)
+            { u -> requests.add(u); if (u.endsWith("&page=1")) page2 else page1 }, now, pause = {})
         assertEquals(listOf(url, url + "&page=1"), requests)
         assertEquals(2, result.noticesChecked)
         assertEquals("Nuevo aviso reciente", result.title)
         assertEquals("Resultados de VRM", result.publications?.last()?.title)
+assertEquals(url + "&page=1", result.publications?.last()?.sourceUrl)
     }
 
-    @Test fun parseAllBoundsPagesAndToleratesLatePageFailure() = runBlocking {
+    @Test fun parseAllRejectsLatePageFailure() = runBlocking {
         var calls = 0
         val page1 = "<main><h1>DIAN 2676</h1><div class='view-content'>" +
             card("Aviso", "20/09/2026 - 12:00") +
             "</div><nav class='pager'><ul><li class='pager__item--next'><a href='" + url + "&page=1'>Siguiente</a></li></ul></nav></main>"
-        val result = ProcessActivityParser.parseAll(process, url,
-            {
-                calls++
-                when (calls) {
-                    1 -> page1
-                    2 -> throw RuntimeException("caída de página")
-                    else -> throw IllegalStateException("no debe seguir")
-                }
-            }, now, maxPages = 2)
-        assertEquals(2, calls)
-        assertEquals("Aviso", result.title)
-        assertEquals(1, result.noticesChecked)
+        try {
+            ProcessActivityParser.parseAll(process, url,
+                {
+                    calls++
+                    when (calls) {
+                        1 -> page1
+                        2 -> throw java.io.IOException("caída de página")
+                        else -> throw IllegalStateException("no debe seguir")
+                    }
+                }, now, maxPages = 2, pause = {})
+            fail("Un fallo en una página posterior debe propagarse, no reducirse a éxito parcial")
+        } catch (expected: java.io.IOException) {
+            assertEquals(2, calls)
+        }
     }
 
     @Test(expected = ParseError::class) fun unknownStructureIsNotEmptySuccess() {
@@ -119,6 +122,79 @@ class ProcessActivityTest {
 
     @Test(expected = IllegalArgumentException::class) fun nonNoticeCategoryIsRejected() {
         ProcessActivityParser.parse(process, page(card("Aviso", "20/09/2026 - 12:00")),
-            url.replace("=64", "=65"), now)
+url.replace("=64", "=65"), now)
+    }
+
+    private fun paged(title: String, next: String? = null): String =
+        page(card(title, "20/09/2026 - 12:00")).replace("</main>",
+            (next?.let { "<li class='pager__item--next'><a href='$it'>Next</a></li>" } ?: "") + "</main>")
+
+    @Test fun partialRefreshPreservesCompleteHistoryAndReportsFailure() = runBlocking {
+        val previous = ProcessActivityParser.parse(process,
+            page(card("Uno", "20/09/2026 - 12:00") + card("Dos", "19/09/2026 - 12:00") +
+                card("Tres", "18/09/2026 - 12:00")), url, now)
+        var stored = previous
+        var error: String? = null
+        ActivityRefresh.run(listOf(process),
+            read = { ProcessActivityParser.parseAll(it, url,
+                { u -> if (u == url) paged("Nuevo", url + "&page=1") else throw java.io.IOException("offline") }, now, pause = {}) },
+            save = { _, value -> stored = value }, report = { _, value -> error = value })
+        assertEquals(previous, stored)
+        assertNotNull(error)
+    }
+
+    @Test fun paginationCancellationPropagatesWithoutSavingOrReportingSuccess() = runBlocking {
+        val cancellation = kotlinx.coroutines.CancellationException("cancelled")
+        try {
+            ActivityRefresh.run(listOf(process),
+                read = { ProcessActivityParser.parseAll(it, url,
+                    { u -> if (u == url) paged("Uno", url + "&page=1") else throw cancellation }, now, pause = {}) },
+                save = { _, _ -> fail("Must not replace history") },
+                report = { _, _ -> fail("Cancellation is not a source result") })
+            fail("Must propagate cancellation")
+        } catch (actual: kotlinx.coroutines.CancellationException) {
+            assertSame(cancellation, actual)
+        }
+    }
+
+    @Test fun threePagesKeepTheirEvidenceUrlsAndBoundRequests() = runBlocking {
+        val requests = mutableListOf<String>()
+        val pages = listOf(url, url + "&page=1", url + "&page=2")
+        val result = ProcessActivityParser.parseAll(process, url, { u ->
+            requests.add(u)
+            val index = pages.indexOf(u)
+            paged("Aviso $index", url + "&page=" + (index + 1))
+        }, now, pause = {})
+        assertEquals(pages, requests)
+        assertEquals(pages, result.publications!!.map { it.sourceUrl })
+    }
+
+    @Test fun manualQueryDownloadsFirstPageOnceAndSharesIt() = runBlocking {
+        val requests = mutableListOf<String>()
+        val pauses = mutableListOf<Long>()
+        val (identity, activity) = ProcessMicrositeReader.read(process, url, { u ->
+            requests.add(u)
+            if (u == url) paged("Manual", url + "&page=1") else paged("Histórico")
+        }, now, pause = { pauses.add(it) })
+        assertEquals(listOf(url, url + "&page=1"), requests)
+        assertEquals(1, requests.count { it == url }) // primera página descargada una sola vez
+        assertEquals(listOf(2000L), pauses) // pausa prudente entre solicitudes sucesivas
+        assertEquals(url, identity.sourceUrl)
+        assertEquals(listOf(url, url + "&page=1"), activity.publications!!.map { it.sourceUrl })
+        assertEquals("Manual", activity.title)
+        assertEquals("Histórico", activity.publications?.last()?.title)
+    }
+
+    @Test fun pauseSeparatesSuccessiveRequestsToTheMicrosite() = runBlocking {
+        val requests = mutableListOf<String>()
+        val pauses = mutableListOf<Long>()
+        val pages = listOf(url, url + "&page=1", url + "&page=2")
+        ProcessActivityParser.parseAll(process, url, { u ->
+            requests.add(u)
+            val index = pages.indexOf(u)
+            paged("Aviso $index", url + "&page=" + (index + 1))
+        }, now, pause = { pauses.add(it) })
+        assertEquals(listOf(2000L, 2000L), pauses)
+        assertEquals(3, requests.size)
     }
 }

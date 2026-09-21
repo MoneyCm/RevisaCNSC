@@ -12,6 +12,17 @@ Git al iniciar esta fase: main dos commits delante del remoto; TASKS y HANDOFF s
 
 # Estado y registro de verificaciones
 
+## Último bloque — robustez del historial del micrositio, 2026-09-21
+- Consulta manual (repository.detail) descarga la primera página una sola vez: nuevo `ProcessMicrositeReader` comparte la primera respuesta entre identidad y actividad, eliminando la doble descarga anterior (`fetch` de identidad + `fetch` de `parseAll`).
+- `parseAll` ahora además recibe `firstPageHtml` (página ya descargada para reutilizar) y `pause` (por defecto `delay(2000)`); la pausa de 2 s separa las solicitudes sucesivas a CNSC. Este recorrido es el único lugar que solicita páginas posteriores, por lo que la pausa aplica también a la consulta manual.
+- Fracaso de una página posterior ya no se traga: propaga (los "fallos tardíos tolerados" de la política anterior eliminados). `ActivityRefresh.run` mantiene su regla: ante Exception no-cancelación reporta error y NO guarda, conservando el historial guardado; el reader no persiste nada a medias por pares identidad+actividad.
+- `CancellationException` se propaga tanto en `parseAll` como en `ActivityRefresh.run` (no se guarda ni se reporta éxito), evitando que una cancelación deje un resultado parcial.
+- Cada publicación conserva la URL real de la página donde se obtuvo: `collect` guarda `sourceUrl` por publicación y `summarize` usa esas URLs en lugar de la inicial en todo `publications`.
+- Regresión aprobada en `ProcessActivityTest` (15 tests): p1 OK + p2 fallida propaga; historial completo previo + consulta parcial conserva `stored` y reporta error; cancelación durante paginación sin guardar/reportar; URLs de evidencias por página (2 y 3); primera página descargada una vez en consulta manual con pausa de 2000 ms; recorrido de 3 páginas normales completo con pausas.
+- VERIFIED: assembleDebug + testDebugUnitTest + lintDebug + assembleDebugAndroidTest BUILD SUCCESSFUL; 61 tests JVM 0 fallos (15 ProcessActivityTest); lint 0 errores/19 advertencias (sin nuevas); MigrationTest 3/3 en 8912c62d vía am instrument (sin desinstalar producción); radar.db real intacta (v3, 27 procesos, 0 seguidos, integrity ok).
+- NOT VERIFIED: página posterior fallida en dispositivo real (simulada por unitarias), recorrido real >3 páginas, y efectos con red real (la pausa se validó con inyección, no con cronómetro físico).
+- Deuda previa conservada: PROJECT_STATUS menciona "sin remoto configurado"; el remoto origin sí está configurado y main está sincronizado con origin/main, corresponde corregir la redacción documental.
+
 ## Último bloque — migraciones Room instrumentadas, 2026-09-21
 - Corregido MigrationTest.kt (no compilaba contra Room 2.6.1: referencia a TEST_DATABASE inexistente y firma antigua de runMigrationsAndValidate(boolean)). Reescribió con MigrationTestHelper(InstrumentationRegistry, LegacyRadarDatabase::class) y la firma vigente runMigrationsAndValidate(name, versionDestino, validateDroppedTables, ...migraciones).
 - Activado exportSchema = true y room.schemaLocation para generar android/app/schemas/co.meritoradar.app.LegacyRadarDatabase/3.json (fuente de verdad). Derivados 1.json (processes sin slug + following) y 2.json (+ content_cache) reconstruyendo createSql desde los fields del 3.json. Copiados a src/androidTest/assets/... para que createDatabase(name, version) los cargue.
