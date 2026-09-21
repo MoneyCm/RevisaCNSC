@@ -68,4 +68,50 @@ class NoticeTest {
             assertThrows(ParseError::class.java) { parser.parse(html, "https://www.cnsc.gov.co/node/999") }
         } finally { http.close() }
     }
+    @Test fun staleRevalidationKeepsLoadedOnesAndLimitsCandidates() {
+        val older = notice().copy(url = "https://www.cnsc.gov.co/node/10",
+            publishedAt = "2026-09-01T15:00:00Z")
+        val fresh = notice().copy(url = "https://www.cnsc.gov.co/node/11")
+        val otherProcess = Process("q", "dian-2676", "DIAN 2676",
+            "https://www.cnsc.gov.co/convocatorias/dian-2676")
+        val followedNotice = older.copy(url = "https://www.cnsc.gov.co/node/12",
+            processUrl = otherProcess.officialUrl)
+        val state = NoticeState(initialized = true, notices = listOf(older, fresh, older.copy(url="https://www.cnsc.gov.co/node/13"),
+            older.copy(url="https://www.cnsc.gov.co/node/14"), older.copy(url="https://www.cnsc.gov.co/node/15"), followedNotice),
+            revalidatedAt = mapOf())
+        // Following only DIAN (q): territorial-12 notices are not revalidated, and the
+        // just-loaded fresh notice is excluded even though it belongs to a followed process.
+        val candidates = NoticeRevalidator.staleCandidates(state, listOf(process, otherProcess), setOf("q"), setOf("https://www.cnsc.gov.co/node/11"))
+        assertEquals(listOf("https://www.cnsc.gov.co/node/12"), candidates.map { it.url })
+    }
+    @Test fun staleRevalidationRotatesOldestRevalidatedFirstAndBounded() {
+        val processId = process.id
+        val notices = (1..10).map { notice().copy(url = "https://www.cnsc.gov.co/node/$it") }
+        val revalidatedAt = notices.withIndex().associate { (i, n) -> n.url to "2026-09-${(i % 5) + 1}T12:00:00Z" }
+        val state = NoticeState(initialized = true, notices = notices,
+            revalidatedAt = revalidatedAt)
+        val candidates = NoticeRevalidator.staleCandidates(state, listOf(process), setOf(processId), emptySet())
+        assertEquals(NoticeRevalidator.MAX_STALE_PER_RUN, candidates.size)
+        val expected = notices.sortedBy { revalidatedAt[it.url] }.take(NoticeRevalidator.MAX_STALE_PER_RUN).map { it.url }
+        assertEquals(expected, candidates.map { it.url })
+    }
+    @Test fun revalidatedOldNoticeUpdateStillDeduplicatesAndPreservesState() {
+        val baseline = merge(NoticeState(initialized = true),
+            notice().copy(url = "https://www.cnsc.gov.co/node/20", publishedAt = "2026-09-01T15:00:00Z"))
+        // Revalidation returns the same published notice unchanged: no event, no pending, ids stable.
+        val same = NoticeEngine.merge(baseline, listOf(notice().copy(url = "https://www.cnsc.gov.co/node/20",
+            publishedAt = "2026-09-01T15:00:00Z")), listOf(process), setOf("p"), now)
+        assertEquals(baseline.events, same.events)
+        assertTrue(same.pending.isEmpty())
+        // A real change to an old followed notice surfaces as NOTICE_UPDATED with evidence,
+        // not as a new publication, and never fabricates eligibility for a past window.
+        val changed = NoticeEngine.merge(baseline, listOf(notice().copy(url = "https://www.cnsc.gov.co/node/20",
+            publishedAt = "2026-09-01T15:00:00Z", paragraphs = listOf("Aviso corregido"))), listOf(process), setOf("p"), now)
+        val upd = changed.events.first { it.eventType == "NOTICE_UPDATED" }
+        assertEquals("Texto oficial", upd.evidence?.old?.get("text"))
+        assertEquals("Aviso corregido", upd.evidence?.new?.get("text"))
+        assertFalse(upd.notifyEligible)
+        assertEquals(changed, NoticeEngine.merge(changed, listOf(notice().copy(url = "https://www.cnsc.gov.co/node/20",
+            publishedAt = "2026-09-01T15:00:00Z", paragraphs = listOf("Aviso corregido"))), listOf(process), setOf("p"), now))
+    }
 }

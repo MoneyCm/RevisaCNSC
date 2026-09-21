@@ -1,5 +1,8 @@
 # Decisiones
 
+## DEC-016 — 2026-09-20 — Revalidación de avisos antiguos por rotación acotada
+La ventana reciente del índice no puede descargarse indefinidamente. En lugar de cubrir todo el historial por página, los avisos de concursos seguidos fuera de la ventana se revalidan por rotación (hasta 6 por ejecución, orden LRU por revalidatedAt persistido) mediante conditional GET con los validators ya almacenados (ETag/Last-Modified). Un 304 conserva contenido; un 200 re-parsea y merge produce NOTICE_UPDATED solo si cambia el semanticKey, sin fabricar elegibilidad para ventanas pasadas. Un fallo de revalidación marca la hora y continúa sin corromper notice_state. Objetivo: detectar modificaciones fuera de la ventana con costo acotado y evidencia real, respetando caché/robots.
+
 ## DEC-001 — 2026-09-19 — Desarrollo por corte verificable
 Problema: catálogo no prueba etapa fina. Opciones: inferir o conservar UNKNOWN. Decisión: estado UNKNOWN y categoría oficial separada IN_DEVELOPMENT. Motivo: evitar aparentar inscripciones abiertas. Consecuencia: ampliar parsers antes de alertas por fechas.
 

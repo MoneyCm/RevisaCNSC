@@ -54,8 +54,37 @@ class NoticeMonitor(private val database: LegacyRadarDatabase, private val http:
             }
             next = followingPage
         }
-        if (!reachedBoundary) throw ParseError("Cobertura de avisos incompleta: más de tres páginas nuevas")
+if (!reachedBoundary) throw ParseError("Cobertura de avisos incompleta: más de tres páginas nuevas")
         val processes = dao.observe().first()
+        // Bounded revalidation of older followed notices outside the recent window.
+        // Reuses stored ETag/Last-Modified; a 200 with changed content still yields
+        // a NOTICE_UPDATED event with evidence through NoticeEngine.merge.
+        val freshUrls = incoming.map { it.url }.toSet()
+        val followedForRevalidation = dao.following().first().toSet()
+        val revalidatedAt = state.revalidatedAt?.toMutableMap() ?: mutableMapOf()
+        val staleCandidates = NoticeRevalidator.staleCandidates(state, processes, followedForRevalidation, freshUrls)
+        for (notice in staleCandidates) {
+            val previous = state.notices.find { it.url == notice.url }
+            if (previous == null) { revalidatedAt[notice.url] = Instant.now().toString(); continue }
+            try {
+                val response = fetch(notice.url, validators[notice.url].orEmpty())
+                val parsed = if (response.statusCode == 304) previous
+                    else if (response.statusCode == 200) parser.parse(response.html, notice.url)
+                    else throw ParseError("HTTP " + response.statusCode)
+                incoming.add(parsed)
+                if (response.statusCode == 200) {
+                    validators[notice.url] = buildMap {
+                        response.etag?.let { put("If-None-Match", it) }
+                        response.lastModified?.let { put("If-Modified-Since", it) }
+                    }
+                }
+            } catch (e: Exception) {
+                // A failed revalidation must never destroy stored state.
+                android.util.Log.w("CnscMonitoring", "Revalidación de aviso antiguo fallida: " + e.javaClass.simpleName + ": " + e.message)
+            } finally {
+                revalidatedAt[notice.url] = Instant.now().toString()
+            }
+        }
         // Bounded rotation of followed microsites; does not create alerts from history.
         val followedForActivity = dao.following().first().toSet()
         val activityCache = dao.activities().first().associateBy { it.cacheKey.removePrefix("activity:") }
@@ -67,7 +96,8 @@ class NoticeMonitor(private val database: LegacyRadarDatabase, private val http:
             val activity = ProcessActivityParser.parse(process, response.html, source, Instant.now())
             dao.cache(ContentCache("activity:" + process.id, gson.toJson(activity), System.currentTimeMillis()))
         }
-        state = NoticeEngine.merge(state, incoming, processes, dao.following().first().toSet(), Instant.now()).copy(validators = validators)
+        state = NoticeEngine.merge(state, incoming, processes, dao.following().first().toSet(), Instant.now())
+            .copy(validators = validators, revalidatedAt = revalidatedAt)
         database.withTransaction {
             dao.cache(ContentCache("notice_state", gson.toJson(state), System.currentTimeMillis()))
             dao.cache(ContentCache("alerts", gson.toJson(AlertContent(state.events)), System.currentTimeMillis()))

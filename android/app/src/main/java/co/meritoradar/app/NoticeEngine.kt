@@ -8,7 +8,8 @@ data class NoticeState(
     val events: List<EventInfo> = emptyList(),
     val pending: Set<String> = emptySet(),
     val initialized: Boolean = false,
-    val validators: Map<String, Map<String, String>> = emptyMap()
+    val validators: Map<String, Map<String, String>> = emptyMap(),
+    val revalidatedAt: Map<String, String>? = null
 )
 
 /** Publication-level changes only. Never interprets a publication as an open stage. */
@@ -78,6 +79,27 @@ object NoticeEngine {
                 }
             }
         }
-        return NoticeState(notices.values.toList(), events.values.sortedByDescending { it.detectedAt }, pending, true, state.validators)
+return NoticeState(notices.values.toList(), events.values.sortedByDescending { it.detectedAt }, pending, true, state.validators, state.revalidatedAt)
+    }
+}
+
+/**
+ * Bounded revalidation of older notices belonging to followed contests.
+ * Notices outside the recent page window keep their stored validators; rotation
+ * picks the least recently revalidated followed notices to re-check conditionally.
+ */
+object NoticeRevalidator {
+    const val MAX_STALE_PER_RUN = 6
+
+    fun staleCandidates(state: NoticeState, processes: List<Process>, followed: Set<String>,
+        freshUrls: Set<String>): List<LocalNotice> {
+        val followedUrls = processes.filter { it.id in followed }.map { it.officialUrl }.toSet()
+        val revalidated = state.revalidatedAt.orEmpty()
+        return state.notices.asSequence()
+            .filter { it.processUrl != null && it.processUrl in followedUrls }
+            .filter { it.url !in freshUrls }
+            .sortedWith(compareBy<LocalNotice>({ revalidated[it.url] ?: "" }, { it.url }))
+            .take(MAX_STALE_PER_RUN)
+            .toList()
     }
 }

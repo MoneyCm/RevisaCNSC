@@ -8,9 +8,9 @@ STATUS es el registro canónico. Conserva bloques históricos: para una misma fu
 
 Android consulta CNSC directamente, conserva datos en Room y tiene detección local de avisos, fechas explícitas y notificaciones locales. El backend es tooling de referencia, no requisito de ejecución.
 
-La última verificación registrada incluye compilación, lint, 36 tests JVM aprobados e instalación conservando datos. Los XML locales consultados durante este relevo confirman 36 tests, cero fallos y cero errores; no se volvieron a ejecutar en este bloque documental.
+La última verificación registrada incluye compilación, lint, 39 tests JVM aprobados e instalación conservando datos. La cobertura de concursos seguidos (NEXT_TASKS 4) quedó implementada en este bloque: revalidación acotada de avisos antiguos por rotación con conditional GET y NOTICE_UPDATED con evidencia; ver STATUS.md para la verificación y lo NOT VERIFIED.
 
-Se verificó una notificación manual visible, una ejecución automática natural y tres pruebas instrumentadas en el paquete QA: repetición, colisiones y destino del PendingIntent. Ver los bloques recientes de STATUS. La representación del detalle real desde una alerta, la entrega con pantalla bloqueada y las migraciones instrumentadas siguen NOT VERIFIED. La cobertura de avisos antiguos y los recordatorios temporales requieren trabajo. No declarar terminada la vigilancia completa.
+Se verificó una notificación manual visible, una ejecución automática natural y tres pruebas instrumentadas en el paquete QA: repetición, colisiones y destino del PendingIntent. Ver los bloques recientes de STATUS. La representación del detalle real desde una alerta, la entrega con pantalla bloqueada y las migraciones instrumentadas siguen NOT VERIFIED. La revalidación de avisos antiguos de seguidos quedó cubierta por rotación acotada (no confundir con recordatorios temporales, que siguen pendientes). No declarar terminada la vigilancia completa.
 
 El punto de control inicial reúne código, pruebas y documentación revisados. Consultar git log -1 para identificar el commit y git status para detectar cambios posteriores. No hay remoto configurado: este punto de recuperación es local y no protege frente a pérdida del equipo.
 

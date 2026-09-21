@@ -1,5 +1,13 @@
 # Checklist manual
 
+## 2026-09-20 — Revalidación de avisos antiguos de seguidos
+- [x] Build y unitarias: assembleDebug testDebugUnitTest lintDebug; 39 tests JVM, 0 fallos; lint 0 errores / 19 advertencias.
+- [x] `adb install -r` en 8912c62d conservando 27 procesos / 4 seguidos; arranque sin crash; sync manual worker SUCCESS y notice_state regenerado; persistido `revalidatedAt` vacío (los 8 avisos del estado se re-fetchearon en la ventana reciente).
+- [x] Un RETRY del periódico durante la instalación no perdió datos (respuesta lenta de 14,7 s; backoff diseñado).
+- [ ] Modificar un aviso antiguo real de un seguido fuera de la ventana reciente y comprobar que la rotación emite NOTICE_UPDATED con evidencia y sin duplicados: pendiente; hoy no hay candidatos stale en el estado.
+- [ ] Estado con más de 3 páginas nuevas en el índice (freno de cobertura actual): pendiente. No inyectar avisos ficticios en producción.
+- [ ] Entrega crítica real del recorrido worker→outbox→bandeja con pantalla bloqueada: sigue sujeta a una publicación oficial con ventana confirmada de un seguido.
+
 ## 2026-09-20 — Recuperación de red (offline → recol conexión)
 - [x] Snapshot Room previo (radar.db + wal + shm): 27 procesos, 4 seguidos, lastCheckedAt 02:50Z.
 - [x] Modo avión ON y ejecución forzada del worker (#168): falló rápido (~28 ms) y NO se perdieron datos (27 procesos / 4 seguidos conservados, mismos ids).
