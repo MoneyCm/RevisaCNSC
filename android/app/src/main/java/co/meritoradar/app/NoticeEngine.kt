@@ -2,6 +2,10 @@ package co.meritoradar.app
 
 import java.time.Instant
 import java.time.Duration
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
+import java.util.Locale
 
 data class NoticeState(
     val notices: List<LocalNotice> = emptyList(),
@@ -9,7 +13,8 @@ data class NoticeState(
     val pending: Set<String> = emptySet(),
     val initialized: Boolean = false,
     val validators: Map<String, Map<String, String>> = emptyMap(),
-    val revalidatedAt: Map<String, String>? = null
+    val revalidatedAt: Map<String, String>? = null,
+    val firedReminders: Map<String, String> = emptyMap()
 )
 
 /** Publication-level changes only. Never interprets a publication as an open stage. */
@@ -79,7 +84,53 @@ object NoticeEngine {
                 }
             }
         }
-return NoticeState(notices.values.toList(), events.values.sortedByDescending { it.detectedAt }, pending, true, state.validators, state.revalidatedAt)
+return NoticeState(notices.values.toList(), events.values.sortedByDescending { it.detectedAt }, pending, true, state.validators, state.revalidatedAt, state.firedReminders)
+    }
+}
+
+/**
+ * Time-based reminders for confirmed official windows. Distinct from StageDetector
+ * events (which react to date changes): these fire from the passage of time as the
+ * official window approaches, deduplicate per window and are cancelled when the
+ * window no longer matches state.
+ */
+object NoticeReminder {
+    const val OPENING_DAYS_AHEAD = 2L
+    const val CLOSING_DAYS_AHEAD = 2L
+    private val bogota = java.time.ZoneId.of("America/Bogota")
+
+    enum class Kind { OPENING, CLOSING }
+
+    data class Candidate(val kind: Kind, val stage: StageInfo, val daysLeft: Long, val message: String)
+
+    fun key(processId: String, stageId: String, kind: Kind, startDate: String, endDate: String): String =
+        hash("REMINDER|" + processId + "|" + stageId + "|" + kind.name + "|" + startDate + "|" + endDate)
+
+    fun candidates(process: Process, stages: List<StageEvidence>, now: Instant): List<Candidate> {
+        val today = now.atZone(bogota).toLocalDate()
+        val fmt = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.forLanguageTag("es-CO"))
+        return stages.filter { it.stage.confidence == "CONFIRMED" && it.stage.status == "SCHEDULED" &&
+            it.stage.startDate != null && it.stage.endDate != null }
+            .flatMap { evidence ->
+                val stage = evidence.stage
+                val start = LocalDate.parse(stage.startDate)
+                val end = LocalDate.parse(stage.endDate)
+                val label = if (stage.kind == "PAYMENT") "recaudo de derechos" else "inscripciones"
+                val openDays = ChronoUnit.DAYS.between(today, start)
+                val closeDays = ChronoUnit.DAYS.between(today, end)
+                val out = mutableListOf<Candidate>()
+                if (openDays in 0..OPENING_DAYS_AHEAD) {
+                    val text = if (openDays == 0L) "$label de ${process.name}: apertura hoy."
+                    else "$label de ${process.name}: apertura en $openDays días (${start.format(fmt)})."
+                    out.add(Candidate(Kind.OPENING, stage, openDays, text))
+                }
+                if (closeDays in 0..CLOSING_DAYS_AHEAD && openDays <= 0) {
+                    val text = if (closeDays == 0L) "$label de ${process.name}: cierre hoy."
+                    else "$label de ${process.name}: cierre en $closeDays días (${end.format(fmt)})."
+                    out.add(Candidate(Kind.CLOSING, stage, closeDays, text))
+                }
+                out
+            }
     }
 }
 

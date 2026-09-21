@@ -1,5 +1,8 @@
 # Decisiones
 
+## DEC-017 — 2026-09-20 — Recordatorios por transcurso del tiempo, no por detección
+Los recordatorios de apertura/cierre no son eventos de publicación: los genera NoticeReminder según la proximidad de la ventana confirmada (apertura 2 días antes del inicio; cierre 2 días antes del fin y solo tras comenzar, fechas en Bogotá). Solo etapas CONFIRMED/SCHEDULED de concursos seguidos y solo cuando la fuente de la etapa fue revisada en la corrida actual. La clave (hash de proceso|etapa|tipo|fechas) deduplica por ventana y cambia ante aplazamiento o cambio de fechas, de modo que lo viejo no se reemite y lo nuevo puede recordarse; el descarte de la outbox por ventana distinta o REVIEW_REQUIRED cancela un pendiente antes de entregarlo.
+
 ## DEC-016 — 2026-09-20 — Revalidación de avisos antiguos por rotación acotada
 La ventana reciente del índice no puede descargarse indefinidamente. En lugar de cubrir todo el historial por página, los avisos de concursos seguidos fuera de la ventana se revalidan por rotación (hasta 6 por ejecución, orden LRU por revalidatedAt persistido) mediante conditional GET con los validators ya almacenados (ETag/Last-Modified). Un 304 conserva contenido; un 200 re-parsea y merge produce NOTICE_UPDATED solo si cambia el semanticKey, sin fabricar elegibilidad para ventanas pasadas. Un fallo de revalidación marca la hora y continúa sin corromper notice_state. Objetivo: detectar modificaciones fuera de la ventana con costo acotado y evidencia real, respetando caché/robots.
 

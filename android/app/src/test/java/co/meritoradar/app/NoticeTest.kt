@@ -95,6 +95,30 @@ class NoticeTest {
         val expected = notices.sortedBy { revalidatedAt[it.url] }.take(NoticeRevalidator.MAX_STALE_PER_RUN).map { it.url }
         assertEquals(expected, candidates.map { it.url })
     }
+    @Test fun reminderCandidatesOnlyNearConfirmedScheduledWindows() {
+        val stage = { status: String, conf: String, start: String, end: String ->
+            StageEvidence(StageInfo("s1", "REGISTRATION", "OPEN", "GENERAL", start, end,
+                status, conf, "https://www.cnsc.gov.co/node/68312"), "2026-09-19T15:00:00Z", "Aviso oficial")
+        }
+        val now = Instant.parse("2026-09-20T15:00:00Z")
+        // Near opening (2 days ahead) and far away (no candidate yet).
+        assertEquals(listOf(NoticeReminder.Kind.OPENING),
+            NoticeReminder.candidates(process, listOf(stage("SCHEDULED", "CONFIRMED", "2026-09-21", "2026-10-05")), now).map { it.kind })
+        assertTrue(NoticeReminder.candidates(process, listOf(stage("SCHEDULED", "CONFIRMED", "2026-10-05", "2026-10-20")), now).isEmpty())
+        // Closing only after the window opened (opening in the past).
+        assertEquals(listOf(NoticeReminder.Kind.CLOSING),
+            NoticeReminder.candidates(process, listOf(stage("SCHEDULED", "CONFIRMED", "2026-09-19", "2026-09-21")), now).map { it.kind })
+        // Unconfirmed or ambiguous windows never produce a reminder.
+        assertTrue(NoticeReminder.candidates(process, listOf(stage("SCHEDULED", "UNCONFIRMED", "2026-09-21", "2026-10-05")), now).isEmpty())
+        assertTrue(NoticeReminder.candidates(process, listOf(stage("REVIEW_REQUIRED", "CONFIRMED", "2026-09-21", "2026-10-05")), now).isEmpty())
+    }
+    @Test fun reminderKeyStableAndDistinctPerWindow() {
+        val a = NoticeReminder.key("p", "s1", NoticeReminder.Kind.OPENING, "2026-09-21", "2026-10-05")
+        assertEquals(a, NoticeReminder.key("p", "s1", NoticeReminder.Kind.OPENING, "2026-09-21", "2026-10-05"))
+        // A postponed window gets a different key, so a fresh reminder may fire later.
+        assertNotEquals(a, NoticeReminder.key("p", "s1", NoticeReminder.Kind.OPENING, "2026-10-10", "2026-10-30"))
+        assertNotEquals(a, NoticeReminder.key("p", "s1", NoticeReminder.Kind.CLOSING, "2026-09-21", "2026-10-05"))
+    }
     @Test fun revalidatedOldNoticeUpdateStillDeduplicatesAndPreservesState() {
         val baseline = merge(NoticeState(initialized = true),
             notice().copy(url = "https://www.cnsc.gov.co/node/20", publishedAt = "2026-09-01T15:00:00Z"))

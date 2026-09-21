@@ -96,8 +96,41 @@ if (!reachedBoundary) throw ParseError("Cobertura de avisos incompleta: más de 
             val activity = ProcessActivityParser.parse(process, response.html, source, Instant.now())
             dao.cache(ContentCache("activity:" + process.id, gson.toJson(activity), System.currentTimeMillis()))
         }
-        state = NoticeEngine.merge(state, incoming, processes, dao.following().first().toSet(), Instant.now())
+        val followed = dao.following().first().toSet()
+        state = NoticeEngine.merge(state, incoming, processes, followed, Instant.now())
             .copy(validators = validators, revalidatedAt = revalidatedAt)
+        // Time-based reminders for confirmed windows, only for followed processes and
+        // only when the source stage is present in this run (clean dates were computed
+        // from the same notices). Reminders deduplicate per window and never claim a
+        // publication: they fire only when the passage of time brings the window near.
+        val firedReminders = state.firedReminders.toMutableMap()
+        val reminderEvents = mutableListOf<EventInfo>()
+        val freshNoticeUrls = incoming.map { it.url }.toSet()
+        for (process in processes.filter { it.id in followed }) {
+            val stages = StageDetector.build(state.notices, process, Instant.now())
+            for (candidate in NoticeReminder.candidates(process, stages, Instant.now())) {
+                val key = NoticeReminder.key(process.id, candidate.stage.id, candidate.kind,
+                    candidate.stage.startDate!!, candidate.stage.endDate!!)
+                if (key in firedReminders) continue
+                if (candidate.stage.officialUrl !in freshNoticeUrls) continue
+                val id = hash("REMINDER_EVENT|" + key)
+                val event = EventInfo(id, process.id,
+                    candidate.stage.kind + (if (candidate.kind == NoticeReminder.Kind.CLOSING) "_CLOSING_SOON" else "_OPEN"),
+                    candidate.message, "IMPORTANT", "CONFIRMED",
+                    null, Instant.now().toString(), true,
+                    EvidenceInfo(candidate.stage.officialUrl, candidate.message, null,
+                        mapOf("stage_id" to candidate.stage.id, "start_date" to candidate.stage.startDate,
+                            "end_date" to candidate.stage.endDate)))
+                reminderEvents.add(event)
+                firedReminders[key] = id
+            }
+        }
+        if (reminderEvents.isNotEmpty()) {
+            state = state.copy(
+                events = (reminderEvents + state.events).sortedByDescending { it.detectedAt },
+                pending = state.pending + reminderEvents.map { it.id }.toSet(),
+                firedReminders = firedReminders)
+        }
         database.withTransaction {
             dao.cache(ContentCache("notice_state", gson.toJson(state), System.currentTimeMillis()))
             dao.cache(ContentCache("alerts", gson.toJson(AlertContent(state.events)), System.currentTimeMillis()))
@@ -113,7 +146,6 @@ if (!reachedBoundary) throw ParseError("Cobertura de avisos incompleta: más de 
         }
         // Durable outbox: same event ID replaces a notification after an interrupted delivery.
         val pending = state.pending.toMutableSet()
-        val followed = dao.following().first().toSet()
         for (id in state.pending) {
             val event = state.events.find { it.id == id }
             if (event == null || event.processId !in followed ||

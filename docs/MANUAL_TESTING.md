@@ -1,5 +1,12 @@
 # Checklist manual
 
+## 2026-09-20 — Recordatorios de apertura/cierre
+- [x] Build y unitarias: assembleDebug testDebugUnitTest lintDebug; 41 tests JVM, 0 fallos; lint 0 errores / 19 advertencias.
+- [x] `adb install -r` en 8912c62d conservando 27 procesos / 4 seguidos; arranque sin crash; worker periódico y manual SUCCESS; notice_state intacto y firedReminders persistido como {}.
+- [ ] Notificación física de un recordatorio con ventana oficial real a ≤2 días de apertura/cierre de un seguido: pendiente; hoy ningún seguido tiene ventana confirmada cercana. No inyectar fechas ficticias.
+- [ ] Aplazar o cambiar una ventana ya recordada y comprobar que el pendiente se descarta antes de entregar (revalidación de outbox): pendiente de evento real.
+- [ ] Pantalla bloqueada con recordatorio real y deep link al concurso: sigue NOT VERIFIED.
+
 ## 2026-09-20 — Revalidación de avisos antiguos de seguidos
 - [x] Build y unitarias: assembleDebug testDebugUnitTest lintDebug; 39 tests JVM, 0 fallos; lint 0 errores / 19 advertencias.
 - [x] `adb install -r` en 8912c62d conservando 27 procesos / 4 seguidos; arranque sin crash; sync manual worker SUCCESS y notice_state regenerado; persistido `revalidatedAt` vacío (los 8 avisos del estado se re-fetchearon en la ventana reciente).
