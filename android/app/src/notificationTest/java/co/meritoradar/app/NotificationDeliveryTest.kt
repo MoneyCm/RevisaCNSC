@@ -89,4 +89,35 @@ class NotificationDeliveryTest {
             instrumentation.removeMonitor(monitor)
         }
     }
+
+    // A blocked channel swallows notify() without exceptions: delivery must report false so the
+    // caller keeps the event in its durable outbox instead of treating it as delivered. Uses a
+    // dedicated probe channel and the critical_alerts channel, both unused by the other tests.
+    @Test fun blockedChannelReportsDeliveryRefused() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        val probe = "qa_blocked_probe"
+        manager.createNotificationChannel(android.app.NotificationChannel(
+            probe, "Probe", NotificationManager.IMPORTANCE_LOW))
+        manager.createNotificationChannel(android.app.NotificationChannel(
+            "critical_alerts", "Alertas urgentes", NotificationManager.IMPORTANCE_HIGH))
+        try {
+            assertFalse(notifier.isChannelBlocked(probe))
+            manager.createNotificationChannel(android.app.NotificationChannel(
+                probe, "Probe", NotificationManager.IMPORTANCE_NONE))
+            assertTrue(notifier.isChannelBlocked(probe))
+
+            // Posting through a blocked channel must be reported as refused and must not publish.
+            manager.createNotificationChannel(android.app.NotificationChannel(
+                "critical_alerts", "Alertas urgentes", NotificationManager.IMPORTANCE_NONE))
+            assertTrue(notifier.isChannelBlocked("critical_alerts"))
+            assertFalse(notifier.showEventNotification(
+                "qa-blocked", processId, "PRUEBA QA", "QA_ONLY",
+                "PRUEBA QA - bloqueado", "No debe publicarse", "CRITICAL"))
+            val posted = manager.activeNotifications.any { it.tag == "qa-blocked" }
+            assertFalse("Blocked channel must not publish", posted)
+        } finally {
+            manager.cancel("qa-blocked", 1000)
+            manager.cancel(probe, 1000)
+        }
+    }
 }

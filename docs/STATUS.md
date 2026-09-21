@@ -1,5 +1,14 @@
 # Estado y registro de verificaciones
 
+## Último bloque — outbox conserva eventos cuando el canal está bloqueado, 2026-09-20
+- Corregida deuda de NEXT_TASKS 2: NoticeMonitor retiraba un evento de la cola tras showEventNotification sin comprobar el canal respectivo; un canal en IMPORTANCE_NONE traga notify() sin excepción y el evento se perdía como si hubiera llegado.
+- LocalNotifier.showEventNotification ahora devuelve Boolean: true solo si el post real llegó al canal; false si falta permiso global, el canal está bloqueado o el sistema rechaza el post. isChannelBlocked() reporta canal inexistente o IMPORTANCE_NONE como bloqueado; channelForPriority() centraliza el mapeo prioridad→canal.
+- NoticeMonitor solo elimina el id de pending cuando showEventNotification devuelve true; canal bloqueado, permiso ausente o camino crítico no revalidado conservan el evento en la cola durable. showTestNotification reutiliza isChannelBlocked para el canal general.
+- VERIFIED: assembleDebug testDebugUnitTest lintDebug: BUILD SUCCESSFUL, 36 tests JVM, 0 fallos; lint 0 errores / 19 advertencias.
+- VERIFIED en 8912c62d (ADB streamed install del paquete QA): NotificationDeliveryTest OK (4 tests) incluyendo blockedChannelReportsDeliveryRefused, que verifica que un canal bloqueado reporta rechazo y no publica. Requirió desinstalar el paquete QA: Android no permite a la app restaurar la importancia de un canal puesto en NONE, por eso la prueba usa canales dedicados y no muta general_info.
+- NOT VERIFIED: conservación física del outbox con canal bloqueado a través del worker completo y entrega oficial con pantalla bloqueada; la prueba QA valida el rechazo de transporte, no el recorrido end-to-end de NoticeMonitor.
+- El trabajo VRM/actividad del agente anterior (ProcessActivity, rotación de micrositios seguidos) quedó sin commit previo preservado en el árbol, sin verificación de este bloque; no se mezcla con este cierre.
+
 ## Último bloque — pruebas aisladas de notificación, 2026-09-20
 - Corregida colisión de identidad: NotificationManager usa eventId completo como tag y el PendingIntent incorpora eventId en su URI. Dos strings con el mismo hash ya no se reemplazan.
 - Variante QA opcional (.qa), con suite propia en src/notificationTest: no inserta datos ficticios en Room. Las pruebas instrumentadas legacy de migración siguen pendientes y no se ejecutan en esta suite.

@@ -70,6 +70,7 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
 
 @Dao
 interface RadarDao {
+    @Query("SELECT * FROM content_cache WHERE cacheKey LIKE 'activity:%'") fun activities(): Flow<List<ContentCache>>
     @Query("SELECT * FROM content_cache WHERE cacheKey LIKE 'identity:%'") fun identities(): Flow<List<ContentCache>>
     @Query("SELECT * FROM content_cache WHERE cacheKey LIKE 'detail:%'") fun details(): Flow<List<ContentCache>>
     @Query("SELECT * FROM content_cache WHERE cacheKey = :key") fun cached(key: String): Flow<ContentCache?>
@@ -109,6 +110,9 @@ abstract class LegacyRadarDatabase : RoomDatabase() {
 
 class LocalRadarRepository(private val dao: RadarDao, private val context: android.content.Context) {
     private val gson = Gson()
+    val activities = dao.activities().map { entries -> entries.associate {
+        it.cacheKey.removePrefix("activity:") to gson.fromJson(it.payload, ProcessActivity::class.java)
+    } }
     private val workManager = androidx.work.WorkManager.getInstance(context)
     val identities = dao.identities().map { entries -> entries.associate {
         it.cacheKey.removePrefix("identity:") to gson.fromJson(it.payload, ProcessIdentity::class.java)
@@ -162,9 +166,10 @@ class LocalRadarRepository(private val dao: RadarDao, private val context: andro
         )
     }
 
-    suspend fun detail(id: String) {
+    suspend fun detail(id: String, force: Boolean = false) {
         val identity = dao.cached("identity:" + id).first()
-        if (identity == null || System.currentTimeMillis() - identity.savedAt > 86_400_000) {
+        val activity = dao.cached("activity:" + id).first()
+        if (force || identity == null || activity == null || System.currentTimeMillis() - activity.savedAt > 1_800_000) {
             val process = dao.observe().first().find { it.id == id } ?: return
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                 val http = CnscHttpClient()
@@ -172,6 +177,8 @@ class LocalRadarRepository(private val dao: RadarDao, private val context: andro
                     val url = process.officialUrl + "?field_tipo_de_contenido_convocat_target_id=64"
                     val response = http.fetch(url)
                     val parsed = ProcessIdentityParser.parse(process, response.html, url, java.time.Instant.now().toString())
+                    val activityParsed = ProcessActivityParser.parse(process, response.html, url, java.time.Instant.now())
+                    dao.cache(ContentCache("activity:" + id, gson.toJson(activityParsed), System.currentTimeMillis()))
                     dao.cache(ContentCache("identity:" + id, gson.toJson(parsed), System.currentTimeMillis()))
                 } finally { http.close() }
             }

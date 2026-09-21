@@ -13,6 +13,7 @@ class RadarViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = (application as RadarApp).repository
     private val selectedId = MutableStateFlow<String?>(null)
     val identities = repository.identities.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+    val activities = repository.activities.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
     val stageSummaries = repository.stageSummaries.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
     val detailContent = selectedId.flatMapLatest { id -> if (id == null) flowOf(null) else repository.observeDetail(id) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
@@ -32,8 +33,8 @@ class RadarViewModel(application: Application) : AndroidViewModel(application) {
             catch (e: Exception) { mutableSync.value = mutableSync.value.copy(loading = false, error = e.message ?: "No pudimos actualizar. Conservamos la información guardada.") }
         }
     }
-    fun loadDetail(id: String) { selectedId.value = id; viewModelScope.launch {
-        try { repository.detail(id) }
+    fun loadDetail(id: String, force: Boolean = false) { selectedId.value = id; viewModelScope.launch {
+        try { repository.detail(id, force) }
         catch (e: CancellationException) { throw e }
         catch (e: Exception) { mutableSync.value = mutableSync.value.copy(error = "No pudimos consultar el detalle. Reintenta cuando tengas conexión.") }
     } }

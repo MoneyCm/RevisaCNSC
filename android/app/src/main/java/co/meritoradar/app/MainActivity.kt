@@ -78,6 +78,7 @@ fun RadarScreen(linkedId: String?, vm: RadarViewModel = viewModel()) {
     var notificationTestResult by rememberSaveable { mutableStateOf<String?>(null) }
     val processes by vm.processes.collectAsStateWithLifecycle()
     val identities by vm.identities.collectAsStateWithLifecycle()
+    val activities by vm.activities.collectAsStateWithLifecycle()
     val stageSummaries by vm.stageSummaries.collectAsStateWithLifecycle()
     val following by vm.following.collectAsStateWithLifecycle()
     val sync by vm.sync.collectAsStateWithLifecycle()
@@ -89,7 +90,7 @@ fun RadarScreen(linkedId: String?, vm: RadarViewModel = viewModel()) {
     var onlyFollowing by rememberSaveable { mutableStateOf(false) }
     var history by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(linkedId) { if (linkedId != null) selected = linkedId }
-    LaunchedEffect(selected) { selected?.let(vm::loadDetail) }
+    LaunchedEffect(selected) { selected?.let { vm.loadDetail(it) } }
     BackHandler(enabled = selected != null) { selected = null }
     val detail = processes.find { it.id == selected }
     val tabs = listOf("Inicio" to Icons.Default.Home, "Concursos" to Icons.AutoMirrored.Filled.List,
@@ -133,7 +134,16 @@ fun RadarScreen(linkedId: String?, vm: RadarViewModel = viewModel()) {
                         } ?: "Consultando etapas guardadas...")
                         Button(onClick = { vm.follow(detail.id, detail.id !in following) }) { Text(if (detail.id in following) "★ Siguiendo" else "☆ Seguir") }
                         OfficialButton(detail.officialUrl, "Ver fuente oficial")
-                        TextButton(onClick = { vm.loadDetail(detail.id) }) { Text("Actualizar detalle") }
+                        TextButton(onClick = { vm.loadDetail(detail.id, true) }) { Text("Actualizar detalle") }
+                        activities[detail.id]?.let { activity ->
+                            Text("Última actividad encontrada", style = MaterialTheme.typography.titleMedium)
+                            Text(activity.summary)
+                            Text(activity.title)
+                            Text("Publicado: " + displayDate(activity.publishedAt))
+                            Text("Revisado: " + displayDate(activity.checkedAt))
+                            Text("Describe el último aviso fechado de la página consultada; puede referirse solo a una modalidad o población.")
+                            OfficialButton(activity.sourceUrl, "Ver aviso en el micrositio oficial")
+                        }
                     }
                     item { Text("Fechas publicadas", style = MaterialTheme.typography.titleLarge) }
                     if (detailContent == null) item { Text("Consultando avisos. Si no tienes conexión, sólo se mostrarán los detalles guardados.") }
@@ -202,7 +212,8 @@ fun RadarScreen(linkedId: String?, vm: RadarViewModel = viewModel()) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(process.name, style = MaterialTheme.typography.titleMedium)
                             Text(processYearLabel(process, identities[process.id]), style = MaterialTheme.typography.bodySmall)
-                            Text(stageSummaries[process.id] ?: "Etapas aún no consultadas")
+                            Text(activities[process.id]?.let { "Último aviso: " + it.summary }
+                                ?: stageSummaries[process.id] ?: "Etapas aún no consultadas")
                             TextButton(onClick = { vm.follow(process.id, process.id !in following) }) { Text(if (process.id in following) "★ Siguiendo" else "☆ Seguir") }
                         }
                     }

@@ -42,6 +42,10 @@ Room content_cache guarda estado, eventos y outbox en una transacción sin cambi
 ## DEC-013 — 2026-09-20 — Relevo secuencial y estado canónico
 Los agentes trabajan sucesivamente en la misma carpeta. STATUS conserva el registro de verificaciones, PROJECT_STATUS sirve de entrada y NEXT_TASKS ordena pendientes. No mantener dos historiales independientes. Un relevo informa pruebas, limitaciones y existencia real del commit; compartir carpeta no equivale a tener respaldo Git. La publicación remota requiere autorización y destino.
 
+## DEC-015 — Outbox conserva eventos por canal bloqueado
+El permiso global no basta: Android traga notify() sin excepción en un canal con IMPORTANCE_NONE. showEventNotification devuelve true solo cuando el post real llegó; isChannelBlocked considera bloqueados canal inexistente o IMPORTANCE_NONE y channelForPriority centraliza prioridad→canal. NoticeMonitor elimina un evento de pending únicamente con entrega confirmada.
+Android no permite a la app restaurar por API la importancia de un canal puesto en NONE; las pruebas instrumentadas deben usar canales dedicados y no mutar canales usados por otras pruebas ni esperar que el finally recupere el estado.
+
 ## DEC-014 — Identidad de notificación y pruebas aisladas
 Usar eventId completo como tag de NotificationManager, con ID numérico constante, para que dos hashes iguales no reemplacen eventos distintos. Incluir eventId en la URI del PendingIntent, además de los extras; los extras por sí solos no distinguen PendingIntents.
 La suite opcional notificationQa usa applicationId terminado en .qa y no inserta datos sintéticos en la app personal. Distinguir entrega del transporte, navegación del intent y representación del detalle; no convertir esas pruebas en afirmación de entrega de eventos reales bajo bloqueo.

@@ -56,6 +56,17 @@ class NoticeMonitor(private val database: LegacyRadarDatabase, private val http:
         }
         if (!reachedBoundary) throw ParseError("Cobertura de avisos incompleta: más de tres páginas nuevas")
         val processes = dao.observe().first()
+        // Bounded rotation of followed microsites; does not create alerts from history.
+        val followedForActivity = dao.following().first().toSet()
+        val activityCache = dao.activities().first().associateBy { it.cacheKey.removePrefix("activity:") }
+        for (process in processes.filter { it.id in followedForActivity }
+            .filter { System.currentTimeMillis() - (activityCache[it.id]?.savedAt ?: 0L) > 1_800_000 }
+            .sortedBy { activityCache[it.id]?.savedAt ?: 0L }.take(3)) {
+            val source = process.officialUrl + "?field_tipo_de_contenido_convocat_target_id=64"
+            val response = fetch(source)
+            val activity = ProcessActivityParser.parse(process, response.html, source, Instant.now())
+            dao.cache(ContentCache("activity:" + process.id, gson.toJson(activity), System.currentTimeMillis()))
+        }
         state = NoticeEngine.merge(state, incoming, processes, dao.following().first().toSet(), Instant.now()).copy(validators = validators)
         database.withTransaction {
             dao.cache(ContentCache("notice_state", gson.toJson(state), System.currentTimeMillis()))
@@ -96,9 +107,12 @@ class NoticeMonitor(private val database: LegacyRadarDatabase, private val http:
                 // Never deliver a queued critical alert from a source not rechecked in this run.
                 if (incoming.none { it.url == current.officialUrl }) continue
             }
-            notifier.showEventNotification(event.id, event.processId, "", event.eventType,
+            // Only a delivered event leaves the outbox: a blocked channel or a refused post
+            // must keep the event queued instead of appearing as delivered.
+            val delivered = notifier.showEventNotification(event.id, event.processId, "", event.eventType,
                 eventLabel(event.eventType),
                 event.title, event.priority)
+            if (!delivered) continue
             pending.remove(id)
             dao.cache(ContentCache("notice_state", gson.toJson(state.copy(pending = pending.toSet())), System.currentTimeMillis()))
         }

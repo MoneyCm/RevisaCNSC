@@ -63,6 +63,12 @@ class LocalNotifier(private val context: Context) {
         }
     }
 
+    fun channelForPriority(priority: String): String = when (priority) {
+        "CRITICAL" -> CHANNEL_CRITICAL
+        "IMPORTANT" -> CHANNEL_IMPORTANT
+        else -> CHANNEL_INFO
+    }
+
     /**
      * Check if notification permission is granted
      */
@@ -77,7 +83,21 @@ class LocalNotifier(private val context: Context) {
     }
 
     /**
-     * Show notification for CNSC event
+     * A channel is deliverable only when it exists and is not disabled (IMPORTANCE_NONE).
+     * A blocked channel swallows notify() without exception, so pending events must not
+     * be dropped based on the global permission alone.
+     */
+    fun isChannelBlocked(channelId: String): Boolean {
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val channel = manager.getNotificationChannel(channelId) ?: return true
+        return channel.importance == NotificationManager.IMPORTANCE_NONE
+    }
+
+    /**
+     * Show notification for CNSC event. Returns true only when the notification was
+     * actually posted through the resolved channel; false when permission is missing,
+     * the channel is blocked or the system refused the post. The caller decides whether
+     * to keep the event in a durable outbox.
      */
     fun showEventNotification(
         eventId: String,
@@ -87,15 +107,14 @@ class LocalNotifier(private val context: Context) {
         title: String,
         message: String,
         priority: String = "INFO"
-    ) {
+    ): Boolean {
         if (!hasNotificationPermission()) {
-            return
+            return false
         }
 
-        val channelId = when (priority) {
-            "CRITICAL" -> CHANNEL_CRITICAL
-            "IMPORTANT" -> CHANNEL_IMPORTANT
-            else -> CHANNEL_INFO
+        val channelId = channelForPriority(priority)
+        if (isChannelBlocked(channelId)) {
+            return false
         }
 
         // Create deep link intent
@@ -132,7 +151,12 @@ class LocalNotifier(private val context: Context) {
             .build()
 
         // The full event ID is the identity: Java hashes can collide for distinct events.
-        NotificationManagerCompat.from(context).notify(eventId, NOTIFICATION_ID_BASE, notification)
+        return try {
+            NotificationManagerCompat.from(context).notify(eventId, NOTIFICATION_ID_BASE, notification)
+            true
+        } catch (_: SecurityException) {
+            false
+        }
     }
 
     /**
@@ -141,8 +165,7 @@ class LocalNotifier(private val context: Context) {
     fun showTestNotification(): Boolean {
         createNotificationChannels(context)
         if (!hasNotificationPermission()) return false
-        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        if (manager.getNotificationChannel(CHANNEL_INFO)?.importance == NotificationManager.IMPORTANCE_NONE) return false
+        if (isChannelBlocked(CHANNEL_INFO)) return false
 
         val intent = Intent(context, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(
