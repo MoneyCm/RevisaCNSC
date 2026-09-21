@@ -1,5 +1,21 @@
 # Checklist manual
 
+## 2026-09-20 — Recuperación de red (offline → recol conexión)
+- [x] Snapshot Room previo (radar.db + wal + shm): 27 procesos, 4 seguidos, lastCheckedAt 02:50Z.
+- [x] Modo avión ON y ejecución forzada del worker (#168): falló rápido (~28 ms) y NO se perdieron datos (27 procesos / 4 seguidos conservados, mismos ids).
+- [x] Modo avión OFF: ejecución del worker SUCCESS con catálogo HTTP 200; lastCheckedAt renovado a 03:01Z en los 27 procesos y notice_state regenerado; sin duplicados ni procesos eliminados.
+- [x] Programación observada en sistema: intervalo 15 minutos, backoff LINEAR 30 s, constraint CONNECTED; el job periódico se reprograma tras una ejecución.
+- [ ] Doze prolongado y restricciones OEM/ahorro de batería: pendiente. Documentar tiempos, no prometer intervalos exactos.
+- [ ] Entrega crítica real con pantalla bloqueada y conservación end-to-end de la outbox con canal bloqueado a través del worker: pendiente.
+- Nota: extraer Room con cat databases/radar.db requiere además -wal y -shm (o checkpoint) para leer escrituras recientes.
+
+## 2026-09-20 — Instalación con fix de outbox y estado real de alertas
+- [x] `adb install -r` de app-debug.apk (commit 5d0dd44) en 8912c62d conservando datos.
+- [x] Apertura correcta; Room conserva 27 procesos y 4 seguidos (Empresas Sociales del Estado 2, DIAN 2676, Aerocivil Primera Fase, PGN 2407 de 2022).
+- [x] Worker real ejecutado tras la instalación: lastCheckedAt actualizado en los 27 procesos (02:50Z) y notice_state regenerado; pending=[].
+- [ ] Sin verificación posible: ninguna alerta crítica real entregable hoy. Los 8 eventos del estado son NOTICE_PUBLISHED con notify_eligible=false y ninguno de los 4 seguidos tiene etapa de inscripción/recaudo confirmada y vigente. No se inyectan datos CNSC ficticios.
+- Solo una publicación oficial nueva con ventana confirmada para un concurso seguido permite comprobar el recorrido crítico real (worker → outbox → bandeja → deep link al concurso). Queda pendiente hasta que exista ese evento.
+
 ## Suite aislada de notificaciones (opcional)
 Resultado 2026-09-20, teléfono 8912c62d: OK (3 tests). Se excluyen resúmenes automáticos del conteo para comprobar avisos de evento. App normal compilada, 36 tests JVM y lint aprobados; actualización conservando 27 procesos. QA detenida al finalizar.
 Compilar desde raíz con .\android\gradlew.bat -p android -PnotificationQa=true assembleQa assembleQaAndroidTest.
@@ -17,6 +33,7 @@ Al terminar, detener la copia QA para evitar revisiones CNSC adicionales: adb sh
 - [x] Observada revisión automática sin forzar job ni pulsar actualizar: 20:38:14–20:38:34, SUCCESS; pantalla Asleep al comprobar; siguiente demora 15 minutos.
 - [ ] Bloquear notificaciones/canal general y verificar mensaje, después restaurar la preferencia del usuario.
 - [ ] Nueva alerta de evento oficial con pantalla bloqueada y app cerrada; tocar y abrir concurso correcto.
+- [ ] (2026-09-20) Sin alerta crítica real entregable hoy: seguidos sin ventana confirmada vigente y pending vacío. Comprobar cuando CNSC publique una ventana real de un concurso seguido.
 - [ ] Recuperación offline, Doze prolongado, accesibilidad y fuente grande del bloque de prueba.
 - La prueba manual no crea eventos CNSC y no demuestra funcionamiento de outbox ni de alertas críticas.
 

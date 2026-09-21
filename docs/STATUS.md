@@ -1,5 +1,20 @@
 # Estado y registro de verificaciones
 
+## Último bloque — recuperación de red verificada en dispositivo, 2026-09-20
+- NEXT_TASKS 3 (vigilancia prolongada y recuperación): verificada físicamente la recuperación de red en 8912c62d sin pérdida de datos y con reintentos conservando estado.
+- Procedimiento: snapshot Room (radar.db + radar.db-wal) → modo avión ON → ejecución forzada del worker (#168) falló en ~28 ms sin tocar los 27 procesos ni los 4 seguidos → modo avión OFF → ejecución manual (apertura de la app) terminó SUCCESS con catálogo HTTP 200 y lastCheckedAt renovado a 03:01Z en los 27 procesos, notice_state regenerado y mismos ids de procesos/seguidos (sin duplicados ni borrados).
+- Lección de extracción: cat databases/radar.db sin copiar -wal ni -shm muestra datos viejos; la comparación correcta requiere los tres archivos o un checkpoint. El snapshot inicial sin WAL ocultaba escrituras recientes.
+- Backoff/constraints observados en el estado del worker: intervalo 15 minutos, backoff LINEAR inicial 30 s, constraint CONNECTED; el job periódico quedó reprogramado tras la ejecución forzada.
+- NOT VERIFIED: Doze prolongado y retrasos OEM/ahorro de batería (solo se documentan tiempos; no se promete puntualidad de 15 minutos), entrega crítica real con pantalla bloqueada y conservación física end-to-end de la outbox con canal bloqueado a través del worker.
+- Sin cambios de código en este bloque: verificación y registro. El fix de outbox sigue siendo el commit 5d0dd44.
+
+## Último bloque — instalación con fix de outbox en dispositivo, 2026-09-20
+- App actualizada con `adb install -r` (debug, 5d0dd44) en 8912c62d conservando 27 procesos y 4 seguidos (Empresas Sociales del Estado 2, DIAN 2676, Aerocivil Primera Fase, PGN 2407 de 2022).
+- VERIFIED: apertura correcta y ejecución real del worker tras reinstalar: lastCheckedAt renovado en los 27 procesos (02:50Z) y notice_state regenerado; 27 procesos, 4 seguidos, base intacta.
+- Estado real de alertas: pending=[]; 8 eventos NOTICE_PUBLISHED con notify_eligible=false. Ninguno de los 4 seguidos tiene etapa de inscripción/recaudo confirmada y vigente, por lo que no existe hoy una alerta crítica entregable real.
+- NOT VERIFIED: recorrido crítico real (worker → outbox → bandeja → deep link) queda pendiente de una publicación oficial nueva con ventana confirmada de un concurso seguido. No se inyectan datos CNSC ficticios.
+- La prueba QA del canal bloqueado (bloque anterior) valida transporte; la entrega física crítica sigue supeditada a un evento real calificable.
+
 ## Último bloque — outbox conserva eventos cuando el canal está bloqueado, 2026-09-20
 - Corregida deuda de NEXT_TASKS 2: NoticeMonitor retiraba un evento de la cola tras showEventNotification sin comprobar el canal respectivo; un canal en IMPORTANCE_NONE traga notify() sin excepción y el evento se perdía como si hubiera llegado.
 - LocalNotifier.showEventNotification ahora devuelve Boolean: true solo si el post real llegó al canal; false si falta permiso global, el canal está bloqueado o el sistema rechaza el post. isChannelBlocked() reporta canal inexistente o IMPORTANCE_NONE como bloqueado; channelForPriority() centraliza el mapeo prioridad→canal.
