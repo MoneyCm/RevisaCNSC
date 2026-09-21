@@ -1,0 +1,1 @@
+HTML real del catálogo CNSC en-desarrollo, consultado 2026-09-19 por HTTPS 200. Se conserva main sin scripts, estilos ni formulario. No contiene datos ficticios. Los casos sintéticos adicionales se crean sólo dentro de tests.

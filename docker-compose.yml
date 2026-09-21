@@ -1,0 +1,41 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: merito
+      POSTGRES_USER: merito
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U merito -d merito"]
+      interval: 5s
+      retries: 10
+    restart: unless-stopped
+  migrate:
+    build: ./backend
+    environment: &environment
+      DATABASE_URL: postgresql+psycopg://merito:${POSTGRES_PASSWORD}@postgres:5432/merito
+      MONITOR_INTERVAL_MINUTES: ${MONITOR_INTERVAL_MINUTES:-30}
+    command: [alembic, upgrade, head]
+    depends_on:
+      postgres:
+        condition: service_healthy
+  api:
+    build: ./backend
+    environment: *environment
+    ports: ["127.0.0.1:8000:8000"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+  monitor:
+    build: ./backend
+    environment: *environment
+    command: [python, -m, app.monitor]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+volumes:
+  pgdata:

@@ -1,0 +1,49 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: merito
+          POSTGRES_PASSWORD: test-only
+          POSTGRES_DB: merito_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U merito -d merito_test"
+          --health-interval 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://merito:test-only@localhost:5432/merito_test
+      TEST_DATABASE_URL: postgresql+psycopg://merito:test-only@localhost:5432/merito_test
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -e '.[test]'
+      - run: alembic upgrade head
+      - run: ruff check .
+      - run: pytest -q
+      - run: alembic check
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+      - run: gradle -p android lintDebug testDebugUnitTest assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: merito-radar-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
