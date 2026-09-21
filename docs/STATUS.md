@@ -1,5 +1,13 @@
 # Estado y registro de verificaciones
 
+## Último bloque — notificación de diagnóstico y periodo natural, 2026-09-20
+- Ajustes permite enviar una notificación silenciosa explícitamente de prueba y abrir la configuración Android. Informa bloqueo global/canal general y no afirma entrega física solo porque notify retorne.
+- VERIFIED: assembleDebug testDebugUnitTest lintDebug, BUILD SUCCESSFUL; 36 tests JVM, cero fallos/errores. APK instalada con install -r conservando 27 procesos.
+- VERIFIED en 8912c62d: al pulsar el botón, la bandeja muestra TEST - Mérito Radar y su texto de prueba; NotificationRecord id=9999, canal general_info. Repetición conserva un solo aviso activo. Esto verifica transporte manual, no la outbox de eventos reales.
+- VERIFIED parcial de segundo plano: sin abrir la app ni forzar jobs durante la observación, consulta automática 20:38:14–20:38:34 con HTTP 200 y worker 875ae58f-4bc1-4084-9ab0-4448640b8146 SUCCESS. Al comprobar se observó mWakefulness=Asleep. Job 154 volvió a programarse con demora de 15 minutos.
+- NOT VERIFIED: nueva alerta de evento oficial recibida con pantalla bloqueada/app cerrada, deep link desde esa alerta, recuperación offline y comportamiento prolongado/Doze. No equiparar una ejecución observada con garantía de puntualidad.
+- Compilación instrumental/migraciones sigue pendiente. No se añadieron datos CNSC ficticios ni se cambiaron favoritos.
+
 Entrada de relevo: [PROJECT_STATUS.md](PROJECT_STATUS.md). Prioridades: [NEXT_TASKS.md](NEXT_TASKS.md).
 Los bloques históricos conservan afirmaciones antiguas: para la misma funcionalidad prevalecen las verificaciones posteriores. Contrastar pendientes con código y bloques recientes.
 

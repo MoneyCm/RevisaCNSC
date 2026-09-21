@@ -137,10 +137,11 @@ class LocalNotifier(private val context: Context) {
     /**
      * Show test notification (for debugging)
      */
-    fun showTestNotification() {
-        if (!hasNotificationPermission()) {
-            return
-        }
+    fun showTestNotification(): Boolean {
+        createNotificationChannels(context)
+        if (!hasNotificationPermission()) return false
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (manager.getNotificationChannel(CHANNEL_INFO)?.importance == NotificationManager.IMPORTANCE_NONE) return false
 
         val intent = Intent(context, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(
@@ -161,6 +162,11 @@ class LocalNotifier(private val context: Context) {
             .setContentIntent(pendingIntent)
             .build()
 
-        NotificationManagerCompat.from(context).notify(9999, notification)
+        return try {
+            NotificationManagerCompat.from(context).notify(9999, notification)
+            true
+        } catch (_: SecurityException) {
+            false
+        }
     }
 }

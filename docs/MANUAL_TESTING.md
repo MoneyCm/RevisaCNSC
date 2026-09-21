@@ -1,5 +1,15 @@
 # Checklist manual
 
+## 2026-09-20 — Diagnóstico de notificaciones y periodo natural
+- [x] Ajustes > Enviar notificación de prueba: aviso silencioso visible en bandeja, texto TEST - Mérito Radar; permiso concedido.
+- [x] Repetir envío: un solo NotificationRecord id=9999.
+- [x] Instalación conservando datos; 36 tests JVM aprobados, build y lint aprobados.
+- [x] Observada revisión automática sin forzar job ni pulsar actualizar: 20:38:14–20:38:34, SUCCESS; pantalla Asleep al comprobar; siguiente demora 15 minutos.
+- [ ] Bloquear notificaciones/canal general y verificar mensaje, después restaurar la preferencia del usuario.
+- [ ] Nueva alerta de evento oficial con pantalla bloqueada y app cerrada; tocar y abrir concurso correcto.
+- [ ] Recuperación offline, Doze prolongado, accesibilidad y fuente grande del bloque de prueba.
+- La prueba manual no crea eventos CNSC y no demuestra funcionamiento de outbox ni de alertas críticas.
+
 ## Fechas locales (compilación, unitarias e instalación aprobadas)
 - assembleDebug / testDebugUnitTest / lintDebug: BUILD SUCCESSFUL. 25 tests aprobados; 0 errores lint, 19 advertencias.
 - Tras reconexión: instalación conservando datos Success en 8912c62d; catálogo/avisos HTTP 200 y worker SUCCESS, UI 27 procesos. Tarjeta de fechas y notificación física crítica siguen NOT VERIFIED.

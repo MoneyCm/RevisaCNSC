@@ -74,6 +74,8 @@ fun displayDate(value: String): String = runCatching {
 
 @Composable
 fun RadarScreen(linkedId: String?, vm: RadarViewModel = viewModel()) {
+    val context = LocalContext.current
+    var notificationTestResult by rememberSaveable { mutableStateOf<String?>(null) }
     val processes by vm.processes.collectAsStateWithLifecycle()
     val identities by vm.identities.collectAsStateWithLifecycle()
     val stageSummaries by vm.stageSummaries.collectAsStateWithLifecycle()
@@ -150,6 +152,18 @@ fun RadarScreen(linkedId: String?, vm: RadarViewModel = viewModel()) {
                     Text("Sistema de vigilancia", style = MaterialTheme.typography.titleLarge)
                     Text(sync.health?.let { "Fuentes disponibles: ${it.sourcesOk} · con problemas: ${it.sourcesFailed} · publicaciones por revisar: ${it.reviewRequired}" } ?: "Estado del monitor no disponible")
                     Button(onClick = vm::refresh, enabled = !sync.loading) { Text("Consultar estado") }
+                    Text("Prueba de notificaciones", style = MaterialTheme.typography.titleMedium)
+                    Text("Envía un aviso de prueba silencioso a la bandeja del teléfono. No es una novedad CNSC ni comprueba la vigilancia automática.")
+                    OutlinedButton(onClick = {
+                        notificationTestResult = if (LocalNotifier(context).showTestNotification())
+                            "Prueba enviada a Android. Abre la bandeja de notificaciones para comprobar si aparece."
+                        else "Notificaciones bloqueadas. Revisa el permiso de la app y el canal Información general."
+                    }) { Text("Enviar notificación de prueba") }
+                    notificationTestResult?.let { Text(it) }
+                    TextButton(onClick = {
+                        context.startActivity(Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                            .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName))
+                    }) { Text("Configurar notificaciones del teléfono") }
                     Text("Versión ${BuildConfig.VERSION_NAME}")
                     Text("Los favoritos y la información reciente se conservan en este teléfono. No solicitamos credenciales de SIMO.")
                     Text("Revisión periódica solicitada cada 15 minutos; Android puede retrasarla. Cobertura inicial: página reciente de avisos CNSC. Fechas extraídas solo de intervalos explícitos; recordatorios de vencimiento y preferencias pendientes.")

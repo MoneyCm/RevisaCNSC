@@ -3,8 +3,8 @@
 Orden de relevo al 2026-09-20. Contrastar con código y [STATUS.md](STATUS.md) antes de implementar.
 
 1. **Comprobar punto de control y preparar respaldo.** Consultar git log -1 y git status antes de comenzar. El punto inicial conserva también las limitaciones documentadas, no implica vigilancia completamente verificada. No hay remoto; publicar un respaldo solo con destino y autorización del usuario.
-2. **Notificaciones reales.** Comprobar permisos, canales, entrega visible, pantalla bloqueada, app cerrada y navegación al concurso correcto. Separar prueba de transporte de una novedad oficial real; no inyectar avisos ficticios en producción. Verificar deduplicación.
-3. **Vigilancia periódica.** Observar una ejecución natural de WorkManager y recuperación de red sin pulsar actualizar. Documentar tiempos y restricciones del teléfono; no prometer intervalos exactos.
+2. **Notificaciones de eventos y enlaces.** Transporte manual de diagnóstico visible verificado (Ajustes); repetición mantiene un aviso. Falta entrega de evento oficial con pantalla bloqueada/app cerrada y navegación al concurso correcto. No inyectar avisos ficticios en producción. Verificar outbox y deduplicación de eventos, aparte de la prueba manual.
+3. **Vigilancia prolongada y recuperación.** Una ejecución natural y su reprogramación a 15 minutos están verificadas. Falta recuperación de red y comportamiento prolongado bajo restricciones/Doze. Documentar tiempos; no prometer intervalos exactos.
 4. **Cobertura de concursos seguidos.** Revisar avisos anteriores y modificaciones fuera de la ventana reciente, con límites, caché, evidencia y respeto a robots.txt. Probar paginación, duplicados, ambigüedad y fallos sin perder estado.
 5. **Recordatorios de apertura/cierre.** Usar ventanas oficiales confirmadas y fuentes actualizadas; deduplicar y cancelar ante cambios/aplazamientos. Distinguir detección de fechas nuevas de recordatorios por transcurso del tiempo.
 6. **Migraciones Room.** Corregir errores de tests instrumentados registrados y ejecutar migraciones con datos conservados. No desinstalar ni borrar datos para hacer pasar una migración.
