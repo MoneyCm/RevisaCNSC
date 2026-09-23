@@ -16,6 +16,10 @@ Leer [AGENTS.md](../AGENTS.md), [STATUS.md](STATUS.md), [NEXT_TASKS.md](NEXT_TAS
 
 STATUS es el registro canónico. Conserva bloques históricos: para una misma funcionalidad prevalece la verificación más reciente. Este archivo no mantiene un segundo historial.
 
+## Punto de partida al 2026-09-23
+
+Entrega local robusta implementada y verificada (DEC-023): outbox con reintento pre-red (`OutboxReview` puro + flush compartido), reentrega al abrir la app y detalle de pendientes en el diagnóstico. Backend con `ruff` limpio (fix de import `Publication`) y `pytest` 27 passed/26 skipped. Android: 93 tests JVM 0 fallos, lint 0 errores/19 advertencias, APK debug generado. `RealCatalogTest` blindada con `@Ignore` (red real + muta following). Sigue NOT VERIFIED lo físico (TASKS 2). Ver STATUS.md para el detalle.
+
 ## Punto de partida al 2026-09-21
 
 Android consulta CNSC directamente, conserva datos en Room y tiene detección local de avisos, fechas explícitas y notificaciones locales. El backend es tooling de referencia, no requisito de ejecución.

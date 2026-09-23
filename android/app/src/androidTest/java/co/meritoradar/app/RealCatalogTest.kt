@@ -2,12 +2,14 @@ package co.meritoradar.app
 
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 
 /** Requires the local real-data API; this is deliberately not a mock integration. */
 class RealCatalogTest {
     @get:Rule val rule = createAndroidComposeRule<MainActivity>()
+    @Ignore("Solo ejecución manual autorizada: usa red real y muta following en producción.")
     @Test fun searchDetailAndPersistentFollowing() {
         rule.waitUntil(60000) {
             rule.onAllNodes(hasText("procesos guardados", substring = true)

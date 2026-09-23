@@ -10,7 +10,7 @@ from app.api import app
 from app.classifier import classify
 from app.db import session
 from app.event_engine import due_events, record_notice
-from app.models import Change, Event, EventEvidence, Process, Snapshot, Stage
+from app.models import Change, Event, EventEvidence, Process, Publication, Snapshot, Stage
 from app.parser import ParseError
 from app.publications import NOTICES, notice_index, parse_notice
 

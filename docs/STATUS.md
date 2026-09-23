@@ -10,6 +10,14 @@ Historial PARCIAL: fallos en páginas posteriores pueden sustituir datos complet
 
 Git al iniciar esta fase: main dos commits delante del remoto; TASKS y HANDOFF sin seguimiento. Este checkpoint incorpora la coordinación; verificar sincronización con git fetch, git status y git rev-list, sin asumirla por una nota histórica.
 
+## Bloque 2026-09-23 — entrega local robusta (sin backend, sin promesa de puntualidad)
+- Nuevo `Outbox.kt`: `OutboxReview` puro (DELIVER/KEEP/DROP: descarta evento inexistente, concurso no seguido, vencido >7 días o ilegible, y ventana que ya no coincide; conserva alerta con etapa sin revisión fresca; entrega el resto) y `deliverOutbox` compartido que persiste tras cada entrega.
+- `NoticeMonitor.run()` reintenta el outbox con lo guardado ANTES de la red (un fallo offline ya no impide reentregar) y usa el flush compartido al final con las fuentes frescas; semántica de entrega idéntica a la anterior.
+- Recalibración al abrir la app: `LocalRadarRepository.deliverPendingNotifications()` (sin red) vía `RadarViewModel.deliverPending()` en `ON_RESUME` (cubre el regreso desde ajustes tras conceder permiso).
+- Diagnóstico: `pendingEvents` con proceso/título de cada pendiente, detalle en "Avisos pendientes de notificar" y "Acción sugerida" cuando hay pendientes (canal bloqueado vs reintento automático).
+- VERIFIED: `testDebugUnitTest + lintDebug + assembleDebug` BUILD SUCCESSFUL; 93 tests JVM 0 fallos (6 nuevos: 4 OutboxReview en NoticeTest, 2 de detalle en DiagnosticsTest); lint 0 errores/19 advertencias preexistentes.
+- NOT VERIFIED: entrega física real con app cerrada/pantalla bloqueada, deep link real a evento y Doze prolongado (este bloque no los cubre; sigue pendiente TASKS 2).
+
 # Estado y registro de verificaciones
 
 ## Verificación no destructiva de estado operativo — 2026-09-21 (orquestador temporal)

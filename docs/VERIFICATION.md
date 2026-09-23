@@ -16,3 +16,13 @@
 No hay datos ficticios persistidos ni envío push real. La evidencia no certifica el producto completo ni vigilancia de fechas.
 
 La primera instalación instrumentada no pudo comenzar: adb informó "device is still booting". No se cuenta como prueba aprobada; no hubo instalación en teléfono personal.
+
+# Evidencia de validación — 2026-09-23
+
+- Backend: `ruff check backend` aprobado (se corrigió import `Publication` faltante en `test_notices.py`); `pytest backend/tests`: 27 passed, 26 skipped (los 26 requieren `TEST_DATABASE_URL` con PostgreSQL real).
+- Android: `testDebugUnitTest + lintDebug + assembleDebug` → BUILD SUCCESSFUL.
+- Suite JVM: 93 tests, 0 fallos (incluye 6 nuevos del bloque outbox: 4 OutboxReview en NoticeTest, 2 de detalle en DiagnosticsTest).
+- Lint: 0 errores, 19 advertencias (preexistentes, ninguna nueva).
+- APK debug: `android/app/build/outputs/apk/debug/app-debug.apk`.
+- `RealCatalogTest` (instrumentada, red real, muta following) quedó con `@Ignore`: solo ejecución manual autorizada. CI no corre pruebas instrumentadas.
+- Sin instalación en dispositivo en este bloque: la entrega física real y Doze siguen NOT VERIFIED.
