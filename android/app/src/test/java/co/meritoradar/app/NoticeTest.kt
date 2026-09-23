@@ -119,6 +119,50 @@ class NoticeTest {
         assertNotEquals(a, NoticeReminder.key("p", "s1", NoticeReminder.Kind.OPENING, "2026-10-10", "2026-10-30"))
         assertNotEquals(a, NoticeReminder.key("p", "s1", NoticeReminder.Kind.CLOSING, "2026-09-21", "2026-10-05"))
     }
+    private fun simpleEvent(id: String = "e1", processId: String = "p",
+        detectedAt: String = "2026-09-20T14:00:00Z") =
+        EventInfo(id, processId, "NOTICE_PUBLISHED", "Aviso oficial", "INFO", "CONFIRMED",
+            "2026-09-19T15:00:00Z", detectedAt, true, null)
+
+    private fun review(event: EventInfo?, followed: Set<String> = setOf("p"),
+        freshUrls: Set<String>? = null, notices: List<LocalNotice> = emptyList()) =
+        OutboxReview.review(event, followed, listOf(process), notices, freshUrls, now)
+
+    @Test fun outboxDeliversSimpleFollowedEvent() {
+        assertEquals(OutboxDecision.DELIVER, review(simpleEvent()))
+    }
+    @Test fun outboxDropsUnknownUnfollowedExpiredAndUnreadable() {
+        assertEquals(OutboxDecision.DROP, review(null))
+        assertEquals(OutboxDecision.DROP, review(simpleEvent(processId = "q")))
+        assertEquals(OutboxDecision.DROP, review(simpleEvent(detectedAt = "2026-09-01T15:00:00Z")))
+        assertEquals(OutboxDecision.DROP, review(simpleEvent(detectedAt = "no-es-fecha")))
+    }
+    private fun stageNotice() = LocalNotice("https://www.cnsc.gov.co/node/1", process.officialUrl,
+        "Fechas de inscripción", "2026-09-19T15:00:00Z",
+        listOf("Inscripciones en modalidad Abierto General del 21 al 28 de septiembre de 2026"), emptyList())
+
+    private fun stageEvent(stage: StageInfo, endDate: String = stage.endDate!!) = EventInfo("e-stage", "p",
+        stage.kind + "_ANNOUNCED", process.name, "CRITICAL", "CONFIRMED", "2026-09-19T15:00:00Z",
+        "2026-09-20T14:00:00Z", true, EvidenceInfo(stage.officialUrl, "extracto", null,
+            mapOf("stage_id" to stage.id, "start_date" to stage.startDate, "end_date" to endDate)))
+
+    @Test fun outboxKeepsStageAlertUntilFreshRecheck() {
+        val stage = StageDetector.build(listOf(stageNotice()), process, now).single().stage
+        assertEquals("SCHEDULED", stage.status)
+        assertEquals("CONFIRMED", stage.confidence)
+        val event = stageEvent(stage)
+        assertEquals(OutboxDecision.KEEP, review(event, notices = listOf(stageNotice())))
+        assertEquals(OutboxDecision.KEEP, review(event, freshUrls = setOf("https://www.cnsc.gov.co/node/otro"),
+            notices = listOf(stageNotice())))
+        assertEquals(OutboxDecision.DELIVER, review(event, freshUrls = setOf(stage.officialUrl),
+            notices = listOf(stageNotice())))
+    }
+    @Test fun outboxDropsStageAlertWhenWindowChanges() {
+        val stage = StageDetector.build(listOf(stageNotice()), process, now).single().stage
+        val changed = stageEvent(stage, endDate = "2026-09-30")
+        assertEquals(OutboxDecision.DROP, review(changed, freshUrls = setOf(stage.officialUrl),
+            notices = listOf(stageNotice())))
+    }
     @Test fun revalidatedOldNoticeUpdateStillDeduplicatesAndPreservesState() {
         val baseline = merge(NoticeState(initialized = true),
             notice().copy(url = "https://www.cnsc.gov.co/node/20", publishedAt = "2026-09-01T15:00:00Z"))

@@ -226,6 +226,20 @@ class LocalRadarRepository(private val dao: RadarDao, private val context: andro
         else CnscMonitoringWorker.resume(context)
     }
 
+    /**
+     * Encola la notificación retardada de prueba QA (solo paquete co.meritoradar.app.qa).
+     * KEEP garantiza como máximo una pendiente. No toca ni programa nada en producción:
+     * la restricción es por applicationId en tiempo de ejecución.
+     */
+    fun scheduleQaDelayedTestNotification(): Boolean =
+        QaDelayNotifier.scheduleIfQa(context.packageName) {
+            workManager.enqueueUniqueWork(
+                QaDelayNotifier.WORK_NAME,
+                QaDelayNotifier.enqueuePolicy,
+                QaDelayNotifier.buildRequest(QaDelayNotifier.DELAY_MILLIS)
+            )
+        }
+
     suspend fun refresh(): Health {
         val id = CnscMonitoringWorker.triggerManualSync(context)
         val result = kotlinx.coroutines.withTimeoutOrNull(240_000) {
@@ -290,6 +304,20 @@ class LocalRadarRepository(private val dao: RadarDao, private val context: andro
         // Details come from the same verified local ingestion as alerts.
         // Opening a detail must never overwrite saved publications with empty data.
         if (dao.cached("detail:$id").first() == null) refresh()
+    }
+
+    /**
+     * Reintenta el outbox durable sin red, con lo guardado: al abrir la app se
+     * reentrega lo pendiente (las alertas con etapa confirmada esperan revision fresca).
+     *
+     */
+    suspend fun deliverPendingNotifications(): Int {
+        val saved = dao.cached("notice_state").first() ?: return 0
+        val state = gson.fromJson(saved.payload, NoticeState::class.java) ?: return 0
+        if (state.pending.isEmpty()) return 0
+        return deliverOutbox(dao, LocalNotifier(context), gson, state,
+            dao.observe().first(), dao.following().first().toSet(), null,
+            java.time.Instant.now()).second
     }
 
     suspend fun follow(id: String, enabled: Boolean) {

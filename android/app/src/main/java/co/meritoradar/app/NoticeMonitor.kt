@@ -5,7 +5,6 @@ import com.google.gson.Gson
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import java.time.Instant
-import java.time.Duration
 
 class NoticeMonitor(private val database: LegacyRadarDatabase, private val http: CnscHttpClient,
     private val notifier: LocalNotifier) {
@@ -24,6 +23,16 @@ class NoticeMonitor(private val database: LegacyRadarDatabase, private val http:
     suspend fun run() {
         val saved = dao.cached("notice_state").first()
         var state = saved?.let { gson.fromJson(it.payload, NoticeState::class.java) } ?: NoticeState()
+        // Best-effort retry of the durable outbox before any network fetch: if this run
+        // goes offline, pending events were already re-attempted with stored data.
+        // Stage-gated alerts wait for a real recheck (freshUrls null keeps them queued).
+        try {
+            state = deliverOutbox(dao, notifier, gson, state, dao.observe().first(),
+                dao.following().first().toSet(), null, Instant.now()).first
+        } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+        catch (e: Exception) {
+            android.util.Log.w("CnscMonitoring", "Reintento inicial del outbox fallido: " + e.javaClass.simpleName)
+        }
         delay(2000) // Keep separation from the catalogue request in the same worker.
         val validators = state.validators.toMutableMap()
         val known = state.notices.map { it.url }.toSet()
@@ -154,39 +163,9 @@ if (!reachedBoundary) throw ParseError("Cobertura de avisos incompleta: más de 
             }
         }
         // Durable outbox: same event ID replaces a notification after an interrupted delivery.
-        val pending = state.pending.toMutableSet()
-        for (id in state.pending) {
-            val event = state.events.find { it.id == id }
-            if (event == null || event.processId !in followed ||
-                Instant.parse(event.detectedAt) < Instant.now().minus(Duration.ofDays(7))) {
-                pending.remove(id)
-                continue
-            }
-            if (!notifier.hasNotificationPermission()) continue
-            val stageId = event.evidence?.new?.get("stage_id")
-            if (stageId != null) {
-                val process = processes.find { it.id == event.processId }
-                val current = process?.let { StageDetector.build(state.notices, it, Instant.now()) }
-                    ?.find { it.stage.id == stageId }?.stage
-                if (current == null || current.status != "SCHEDULED" || current.confidence != "CONFIRMED" ||
-                    current.startDate != event.evidence?.new?.get("start_date") ||
-                    current.endDate != event.evidence?.new?.get("end_date") ||
-                    current.endDate?.let { java.time.LocalDate.parse(it) < java.time.LocalDate.now(java.time.ZoneId.of("America/Bogota")) } != false) {
-                    pending.remove(id)
-                    continue
-                }
-                // Never deliver a queued critical alert from a source not rechecked in this run.
-                if (incoming.none { it.url == current.officialUrl }) continue
-            }
-            // Only a delivered event leaves the outbox: a blocked channel or a refused post
-            // must keep the event queued instead of appearing as delivered.
-            val delivered = notifier.showEventNotification(event.id, event.processId, "", event.eventType,
-                eventLabel(event.eventType),
-                event.title, event.priority)
-            if (!delivered) continue
-            pending.remove(id)
-            dao.cache(ContentCache("notice_state", gson.toJson(state.copy(pending = pending.toSet())), System.currentTimeMillis()))
-        }
-        dao.cache(ContentCache("notice_state", gson.toJson(state.copy(pending = pending.toSet())), System.currentTimeMillis()))
+        // Shared flush delivers with this run's fresh sources and persists after each
+        // delivery; undelivered events stay queued for the next run or app open.
+        state = deliverOutbox(dao, notifier, gson, state, processes, followed,
+            incoming.map { it.url }.toSet(), Instant.now()).first
     }
 }

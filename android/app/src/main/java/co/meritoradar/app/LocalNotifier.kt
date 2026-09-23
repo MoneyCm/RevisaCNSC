@@ -198,8 +198,46 @@ class LocalNotifier(private val context: Context) {
             .setContentIntent(pendingIntent)
             .build()
 
-        return try {
+return try {
             NotificationManagerCompat.from(context).notify(9999, notification)
+            true
+        } catch (_: SecurityException) {
+            false
+        }
+    }
+
+    /**
+     * Notificación de prueba exclusiva del paquete QA. Debe alcanzarse siempre a través de
+     * `QaDelayNotifier` (que restringe por applicationId); nunca se invoca desde el flujo
+     * de vigilancia. Abre Mérito Radar QA sin deep link de evento, no crea novedades CNSC
+     * ni escribe en outbox/Room/avisos/actividad/caché.
+     */
+    fun showQaTestNotification(): Boolean {
+        createNotificationChannels(context)
+        if (!hasNotificationPermission()) return false
+        if (isChannelBlocked(CHANNEL_INFO)) return false
+
+        val intent = Intent(context, MainActivity::class.java)
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            0,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_INFO)
+            .setSmallIcon(R.drawable.ic_radar)
+            .setContentTitle("TEST QA - Mérito Radar")
+            .setContentText("Notificación retardada de prueba generada con la app cerrada.")
+            .setStyle(NotificationCompat.BigTextStyle().bigText("Notificación retardada de prueba generada con la app cerrada."))
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOnlyAlertOnce(true)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .build()
+
+        return try {
+            NotificationManagerCompat.from(context).notify(9998, notification)
             true
         } catch (_: SecurityException) {
             false

@@ -78,6 +78,7 @@ fun displayDate(value: String): String = runCatching {
 fun RadarScreen(linkedId: String?, vm: RadarViewModel = viewModel()) {
     val context = LocalContext.current
     var notificationTestResult by rememberSaveable { mutableStateOf<String?>(null) }
+    var qaScheduleResult by rememberSaveable { mutableStateOf<String?>(null) }
     val processes by vm.processes.collectAsStateWithLifecycle()
     val identities by vm.identities.collectAsStateWithLifecycle()
     val activityChecks by vm.activityChecks.collectAsStateWithLifecycle()
@@ -98,7 +99,7 @@ fun RadarScreen(linkedId: String?, vm: RadarViewModel = viewModel()) {
     LaunchedEffect(linkedId) { if (linkedId != null) selected = linkedId }
     LaunchedEffect(selected) { selected?.let { vm.loadDetail(it) } }
     LaunchedEffect(tab) { if (tab == "Ajustes") vm.refreshAndroidEnvironment() }
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.refreshAndroidEnvironment() }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.refreshAndroidEnvironment(); vm.deliverPending() }
     BackHandler(enabled = selected != null) { selected = null }
     val detail = processes.find { it.id == selected }
     val tabs = listOf("Inicio" to Icons.Default.Home, "Concursos" to Icons.AutoMirrored.Filled.List,
@@ -235,6 +236,18 @@ fun RadarScreen(linkedId: String?, vm: RadarViewModel = viewModel()) {
                         else "Notificaciones bloqueadas. Revisa el permiso de la app y el canal Información general."
                     }) { Text("Enviar notificación de prueba") }
                     notificationTestResult?.let { Text(it) }
+                    val qaMode = remember { QaDelayNotifier.isQaApplication(context.packageName) }
+                    if (qaMode) {
+                        HorizontalDivider()
+                        Text("Prueba retardada QA", style = MaterialTheme.typography.titleMedium)
+                        Text("Programa una notificación de prueba que WorkManager publicará en ~1 minuto, incluso con la app cerrada y la pantalla bloqueada. No genera novedades CNSC ni toca datos guardados.")
+                        OutlinedButton(onClick = {
+                            qaScheduleResult = if (vm.scheduleQaDelayedTestNotification())
+                                "TEST QA programada (máximo una pendiente). Se publicará en ~1 minuto si Android lo permite."
+                            else "Este control solo está disponible en el paquete QA."
+                        }) { Text("Programar notificación QA en 1 minuto") }
+                        qaScheduleResult?.let { Text(it) }
+                    }
                     TextButton(onClick = {
                         context.startActivity(Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                             .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName))

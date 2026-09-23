@@ -33,6 +33,8 @@ data class MicrositeDiagnosis(
     val hasRecentFailure: Boolean
 )
 
+data class PendingDiagnosis(val processName: String, val title: String, val eventType: String)
+
 enum class WatchStatus(val label: String) {
     OPERATIONAL("Vigilando correctamente"),
     DEGRADED("Vigilando con problemas"),
@@ -61,6 +63,7 @@ data class DiagnosticsSnapshot(
     val noticesCount: Int,
     val eventsCount: Int,
     val pendingCount: Int,
+    val pendingEvents: List<PendingDiagnosis> = emptyList(),
     val initialized: Boolean,
     val microsites: List<MicrositeDiagnosis>,
     val recentMicrositeFailures: List<MicrositeDiagnosis>,
@@ -103,7 +106,10 @@ data class DiagnosticsSnapshot(
             if (recentMicrositeFailures.isEmpty()) LineKind.OK else LineKind.ERROR)
         out += DiagnosticLine("Avisos guardados", noticesCount.toString())
         out += DiagnosticLine("Eventos guardados", eventsCount.toString())
-        out += DiagnosticLine("Avisos pendientes de notificar", pendingCount.toString(),
+        val pendingDetail = if (pendingEvents.isEmpty()) pendingCount.toString()
+            else pendingCount.toString() + ": " + pendingEvents.take(3).joinToString("; ") { it.processName + " — " + it.title } +
+                (if (pendingEvents.size > 3) " (+" + (pendingEvents.size - 3) + " más)" else "")
+        out += DiagnosticLine("Avisos pendientes de notificar", pendingDetail,
             if (pendingCount == 0) LineKind.INFO else LineKind.WARN)
         out += DiagnosticLine(
             "Notificaciones",
@@ -127,6 +133,11 @@ data class DiagnosticsSnapshot(
             else if (periodMinutes <= 0) "Sin programación"
             else "${runsPerDay} aproximadas (24 h / $periodMinutes min)",
             if (pendingFailures > 0) LineKind.WARN else LineKind.OK)
+        if (pendingCount > 0 && notificationPermission != false) {
+            out += DiagnosticLine("Acción sugerida", if (channelsBlocked.isNotEmpty())
+                "Tienes $pendingCount aviso(s) por entregar bloqueados: revisa los canales de notificación en los ajustes del sistema."
+                else "Tienes $pendingCount aviso(s) por entregar: se reintentan en cada revisión y al abrir la app.", LineKind.WARN)
+        }
         if (notificationPermission == false) {
             out += DiagnosticLine("Acción sugerida", "Concede el permiso de notificaciones en los ajustes del teléfono", LineKind.WARN)
         }
@@ -223,6 +234,11 @@ object Diagnostics {
         val recentFailures = microsites.filter { it.hasRecentFailure }
         val (status, reason) = status(paused, periodic?.state, noticeState?.initialized == true, recentFailures,
             notificationPermission)
+        val eventById = noticeState?.events.orEmpty().associateBy { it.id }
+        val nameById = processes.associate { it.id to it.name }
+        val pendingEvents = noticeState?.pending.orEmpty().mapNotNull { id ->
+            eventById[id]?.let { PendingDiagnosis(nameById[it.processId] ?: it.processId, it.title, it.eventType) }
+        }.sortedBy { it.processName }.take(10)
         val followed = processes.filter { it.id in followedIds }.sortedBy { it.name }.map { it.name to it.slug }
         return DiagnosticsSnapshot(
             generatedAt = now,
@@ -243,6 +259,7 @@ object Diagnostics {
             noticesCount = noticeState?.notices?.size ?: 0,
             eventsCount = noticeState?.events?.size ?: 0,
             pendingCount = noticeState?.pending?.size ?: 0,
+            pendingEvents = pendingEvents,
             initialized = noticeState?.initialized ?: false,
             microsites = microsites,
             recentMicrositeFailures = recentFailures,

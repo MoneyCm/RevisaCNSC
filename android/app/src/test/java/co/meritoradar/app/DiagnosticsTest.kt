@@ -237,6 +237,44 @@ class DiagnosticsTest {
         assertTrue(resumed.lines().any { it.label == "Programación actual" && it.value == "ENQUEUED" })
     }
 
+    private fun pendingState() = NoticeState(
+        notices = emptyList(),
+        events = listOf(EventInfo("e0", "p1", "NOTICE_PUBLISHED", "Aviso oficial", "INFO",
+            "CONFIRMED", "2026-09-20T15:00:00Z", now().toString(), true, null)),
+        pending = setOf("e0", "e-perdido"),
+        initialized = true
+    )
+
+    private fun pendingSnapshot(state: NoticeState, channelsBlocked: List<String> = emptyList()) =
+        Diagnostics.build(
+            now = now(),
+            processes = listOf(process("p1", "DIAN 2676", "dian-2676")),
+            followedIds = setOf("p1"),
+            checks = emptyList(),
+            noticeState = state,
+            noticeStateSavedAt = now(),
+            periodic = null,
+            periodMinutes = 30,
+            paused = false,
+            notificationPermission = true,
+            channelsBlocked = channelsBlocked,
+            batteryOptimizationExempt = null
+        )
+
+    @Test fun buildExposesPendingDeliveryDetailAndAction() {
+        val snapshot = pendingSnapshot(pendingState())
+        assertEquals(2, snapshot.pendingCount)
+        assertEquals(1, snapshot.pendingEvents.size)
+        assertEquals("DIAN 2676", snapshot.pendingEvents.single().processName)
+        assertEquals("Aviso oficial", snapshot.pendingEvents.single().title)
+        val line = snapshot.lines().first { it.label == "Avisos pendientes de notificar" }
+        assertTrue(line.value.contains("DIAN 2676"))
+        assertTrue(snapshot.lines().any { it.label == "Acción sugerida" && it.value.contains("al abrir la app") })
+    }
+    @Test fun pendingWithBlockedChannelSuggestsSystemSettings() {
+        val snapshot = pendingSnapshot(pendingState(), channelsBlocked = listOf("Alertas urgentes"))
+        assertTrue(snapshot.lines().any { it.label == "Acción sugerida" && it.value.contains("canales de notificación") })
+    }
     @Test fun successiveIntervalChangesKeepClampingAndDailyRuns() {
         // Cambios sucesivos 15 → 30 → 60 → 15: el valor se acota a partir del mínimo de WorkManager.
         val sequence = listOf(15, 30, 60, 120, 15).map(Diagnostics::coercePeriod)

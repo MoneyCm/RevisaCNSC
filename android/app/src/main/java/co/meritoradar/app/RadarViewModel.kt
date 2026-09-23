@@ -31,6 +31,13 @@ class RadarViewModel(application: Application) : AndroidViewModel(application) {
     fun setMonitorInterval(minutes: Int) = viewModelScope.launch { repository.setMonitorInterval(minutes) }
     fun setMonitoringPaused(paused: Boolean) = viewModelScope.launch { repository.setMonitoringPaused(paused) }
     fun refreshAndroidEnvironment() = repository.refreshAndroidEnvironment()
+    /** Recalibración al abrir la app: reentrega lo pendiente sin red, sin error visible. */
+    fun deliverPending() { viewModelScope.launch {
+        try { repository.deliverPendingNotifications() }
+        catch (e: CancellationException) { throw e }
+        catch (_: Exception) { }
+    } }
+    fun scheduleQaDelayedTestNotification(): Boolean = repository.scheduleQaDelayedTestNotification()
     fun refresh() {
         if (mutableSync.value.loading) return
         viewModelScope.launch {
