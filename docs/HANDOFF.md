@@ -12,12 +12,20 @@ Git al iniciar esta fase: main dos commits delante del remoto; TASKS y HANDOFF s
 
 # HANDOFF — Relevo de OpenCode (orquestador temporal) a Codex
 
-- **Fecha**: 2026-09-21 (última actualización al cierre de la verificación física del transporte de notificación de prueba por el usuario).
-- **Estado actual del proyecto**: Android local-first de vigilancia CNSC (Mérito Radar) funcional y verificado hasta el cierre de esta sesión. Consulta CNSC directamente (OkHttp + TLS corregido), persiste en Room (v3), detecta avisos locales, proyecta fechas conservadoramente y genera notificaciones locales. Backend FastAPI/PostgreSQL es tooling de referencia, no requisito de ejecución. Ahora incluye diagnóstico en la app y preferencias de frecuencia/pausa cumplibles por la arquitectura, con los hallazgos de la auditoría QA de Devin corregidos.
-- **Último commit local**: ver `git log -1`; main sincronizado con `origin/main` (push completado en este cierre).
+- **Fecha**: 2026-09-23 (cierre documental del bloque de entrega local robusta; la verificación física del transporte de prueba sigue siendo la del 2026-09-21 por el usuario).
+- **Estado actual del proyecto**: Android local-first de vigilancia CNSC (Mérito Radar) funcional y verificado hasta el cierre de esta sesión. Consulta CNSC directamente (OkHttp + TLS corregido), persiste en Room (v3), detecta avisos locales, proyecta fechas conservadoramente y genera notificaciones locales. Backend FastAPI/PostgreSQL es tooling de referencia, no requisito de ejecución. Ahora incluye diagnóstico en la app y preferencias de frecuencia/pausa cumplibles por la arquitectura, con los hallazgos de la auditoría QA de Devin corregidos. Incluye entrega local robusta (DEC-023): outbox durable con reintento pre-red, reentrega al abrir la app y detalle de pendientes en el diagnóstico (93 tests JVM 0 fallos; backend 27 passed/26 skipped).
+- **Último commit local**: ver `git log -1`; este cierre documental 2026-09-23 se commitea y pushea con autorización del usuario en esta sesión. El push completado mencionado en los bloques previos corresponde al cierre 2026-09-21.
 - **Contexto**: Codex estuvo ausente; OpenCode actuó como orquestador temporal con protocolo de relevo (leer AGENTS/TASKS/HANDOFF/PROJECT_STATUS/DECISIONS, verificar git antes de tocar, bloques verificables, commit+push+sync tras cada bloque). origin/main es la fuente de verdad y quedó sincronizado.
 
-## Resumen del bloque actual — Correcciones de la auditoría QA de Devin (ac8e6b4)
+## Resumen del bloque 2026-09-23 — entrega local robusta (DEC-023)
+
+1. **Outbox durable**: nuevo `Outbox.kt` con `OutboxReview` puro (DELIVER/KEEP/DROP) y `deliverOutbox` compartido que persiste tras cada entrega.
+2. **Reintento pre-red**: `NoticeMonitor.run()` reintenta el outbox con lo guardado antes de la red y usa el flush compartido al final.
+3. **Reentrega al abrir**: `LocalRadarRepository.deliverPendingNotifications()` vía `RadarViewModel.deliverPending()` en `ON_RESUME` (sin red).
+4. **Diagnóstico**: `pendingEvents` con proceso/título por pendiente y acción sugerida (canal bloqueado vs reintento automático).
+5. **Verificación (sin dispositivo)**: `testDebugUnitTest + lintDebug + assembleDebug` BUILD SUCCESSFUL; 93 tests JVM 0 fallos (6 nuevos); lint 0 errores/19 advertencias preexistentes. NOT VERIFIED: entrega física real con app cerrada/pantalla bloqueada, deep link real a evento y Doze prolongado (TASKS 2). Detalle en STATUS.
+
+## Resumen del bloque previo — Correcciones de la auditoría QA de Devin (ac8e6b4)
 
 1. **WorkInfo vigente**: `observePeriodicWork()` ya no usa `firstOrNull()` sobre todos los trabajos históricos del nombre único. Cada `WorkInfo` se mapea a `PeriodicWorkCandidate` y `Diagnostics.selectActivePeriodic` selecciona determinísticamente el trabajo activo (ENQUEUED o RUNNING); históricos CANCELLED/SUCCEEDED/FAILED no generan un AT_RISK falso si existe un trabajo activo. Sin trabajo activo → null (ausencia de programación), interpretada como AT_RISK salvo pausa (PAUSED prevalece). Regresiones: CANCELLED+ENQUEUED, CANCELLED+RUNNING, solo CANCELLED, lista vacía y FAILED/SUCCEEDED sin activo.
 2. **Refresco del entorno Android**: `_androidEnvironment` es un `MutableStateFlow` re-lecto por `repository.refreshAndroidEnvironment()`; sin polling continuo. Disparado por `LifecycleEventEffect(Lifecycle.Event.ON_RESUME)` (regreso a la app desde Ajustes del sistema) y por `LaunchedEffect(tab)` al entrar a la pestaña Ajustes. El `combine` usa el StateFlow.
@@ -99,7 +107,7 @@ Git al iniciar esta fase: main dos commits delante del remoto; TASKS y HANDOFF s
 
 ## Siguiente tarea recomendada
 
-La verificación física del diagnóstico y las preferencias quedó completada por el usuario en producción (pantalla Ajustes → Diagnóstico, frecuencia 15→30→60→15, pausa/reanudar, refresco al volver de configuración Android, worker y un único trabajo periódico activo), y el transporte de la notificación de prueba también (TEST en pantalla bloqueada → apertura de Mérito Radar). Continuar con los pendientes que esperan una novedad oficial real: ítem 2 (entrega crítica real con pantalla bloqueada/app cerrada desde el worker) y 5 (Doze prolongado). TASKS.md ordena el trabajo: 8 (estado del dispositivo) está actualizado y el diagnóstico permite observar el funcionamiento sin repoblar a ciegas.
+La verificación física del diagnóstico y las preferencias quedó completada por el usuario en producción (pantalla Ajustes → Diagnóstico, frecuencia 15→30→60→15, pausa/reanudar, refresco al volver de configuración Android, worker y un único trabajo periódico activo), y el transporte de la notificación de prueba también (TEST en pantalla bloqueada → apertura de Mérito Radar). Continuar con los pendientes que esperan una novedad oficial real: ítem 2 (entrega crítica real con pantalla bloqueada/app cerrada desde el worker) y 5 (Doze prolongado). TASKS.md ordena el trabajo: 8 (estado del dispositivo) está actualizado y el diagnóstico permite observar el funcionamiento sin repoblar a ciegas. Cierre documental 2026-09-23: HANDOFF puesto al día con el bloque outbox; NOTIFICATIONS.md y README corregidos (el diseño FCM/backend queda como nota histórica superseded).
 
 ## Tareas que requieren especialmente revisión de Codex
 

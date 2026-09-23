@@ -41,26 +41,28 @@ APK: `android/app/build/outputs/apk/debug/app-debug.apk`
 
 La aplicación consultará CNSC periódicamente mediante WorkManager (configurable: 15 min, 30 min, 1 h, 2 h) y generará notificaciones locales cuando detecte cambios importantes.
 
-### Funcionalidades Implementadas
+### Funcionalidades implementadas
 
 - ✅ Consulta directa a CNSC (sin backend)
 - ✅ Parser de catálogo de procesos
-- ✅ WorkManager para vigilancia periódica
-- ✅ Detección de nuevos procesos
-- ✅ Notificaciones locales con canales (urgente, importante, general)
+- ✅ WorkManager para vigilancia periódica (frecuencia 15/30/60/120 min + pausa, sin prometer exactitud)
+- ✅ Detección de nuevos procesos y parser de avisos oficiales
+- ✅ Detección de cambios en inscripciones/recaudos y deduplicación semántica
+- ✅ Notificaciones locales con canales (urgente, importante, general), outbox durable con reintento y conservación ante canal bloqueado
 - ✅ Deep links a procesos específicos
 - ✅ Permisos POST_NOTIFICATIONS para Android 13+
-- ✅ Persistencia local en Room
+- ✅ Persistencia local en Room (v3, con migraciones probadas)
 - ✅ Sincronización manual
+- ✅ Diagnóstico en Ajustes con datos reales y recordatorios de apertura/cierre
 
-### Funcionalidades Pendientes
+### Funcionalidades pendientes (verificación física)
 
-- ⏳ Detección de cambios en inscripciones/recaudos
-- ⏳ Parser de avisos oficiales
-- ⏳ Deduplicación semántica
-- ⏳ Preferencias de frecuencia de vigilancia
-- ⏳ Pruebas en dispositivo/emulador real
-- ⏳ UI de diagnóstico de vigilancia
+- ⏳ Entrega crítica real con app cerrada / pantalla bloqueada y deep link a evento (requiere novedad oficial real)
+- ⏳ Comportamiento prolongado bajo Doze / restricciones OEM
+- ⏳ Paginación real de micrositio con más de 3 páginas
+- ⏳ Migración de base histórica real con datos previos
+
+Lo no comprobado en dispositivo figura como NOT VERIFIED en [estado verificable](docs/STATUS.md) y [tareas](docs/TASKS.md).
 
 ## Backend (Reference Tooling)
 
